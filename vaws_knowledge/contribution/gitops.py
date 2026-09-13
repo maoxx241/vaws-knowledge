@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from typing import Mapping
 
 from vaws_knowledge.contribution.documents import require_git_sha
 from vaws_knowledge.contribution.errors import TransportError
 
 
-def run_git(repo: Path, args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+def run_git(repo: Path, args: list[str], *, check: bool = True, env: Mapping[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     try:
         proc = subprocess.run(
             ["git", "-C", str(repo), *args],
@@ -22,11 +23,14 @@ def run_git(repo: Path, args: list[str], *, check: bool = True) -> subprocess.Co
             text=True,
             encoding="utf-8",
             timeout=120,
+            env=env,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise TransportError(f"git {args[0]} unavailable: {type(exc).__name__}") from exc
     if check and proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout or "git failed").strip()
+        from vaws_knowledge.github_transport import redact_credentials
+
+        detail = redact_credentials((proc.stderr or proc.stdout or "git failed").strip(), env=env)
         raise TransportError(f"git {' '.join(args)} failed: {detail}")
     return proc
 

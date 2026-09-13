@@ -136,7 +136,7 @@ material regardless of publication status.
 
 Shared release synchronization is enabled by default, independently of public
 upload permission. For explicitly requested contribution setup,
-`vaws-knowledge publishing configure --config PATH` creates or reuses a
+`vaws-knowledge publishing configure --config PATH --consent-file COMMUNITY_JSON` creates or reuses a
 contribution fork. `--read-only` disables contribution and keeps release sync
 without a fork or GitHub login. Existing
 private candidates are not bulk uploaded when sharing is enabled. Ordinary

@@ -33,7 +33,7 @@ def _cmd_submit(args: argparse.Namespace) -> int:
         return _print({"status": "unchanged", "pending": []})
     if not args.git_repo:
         return _print({"status": "awaiting_transport", "reason": "a configured fork checkout is required"})
-    from vaws_knowledge.github_transport import github_token
+    from vaws_knowledge.github_transport import github_token, git_environment
 
     try:
         token = github_token()
@@ -48,6 +48,7 @@ def _cmd_submit(args: argparse.Namespace) -> int:
         git_repo=Path(args.git_repo),
         github=github,
         config=config,
+        git_env=git_environment(token),
     )
     return _print(updated.to_dict())
 

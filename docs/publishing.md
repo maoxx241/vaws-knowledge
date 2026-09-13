@@ -4,12 +4,45 @@ Status: current
 
 Local installation and retrieval preparation do not enable public uploads.
 `shared_sync.enabled` defaults to true and is independent of `publishing.enabled`.
-For explicitly requested contribution setup, `vaws-knowledge publishing configure --config PATH` enables
-sharing according to the user's authorization and configuration. It reuses GitHub CLI authentication, creates
+For explicitly requested contribution setup, `vaws-knowledge publishing configure --config PATH --consent-file COMMUNITY_JSON` enables
+sharing according to the user's authorization and configuration. It uses
+`GH_TOKEN` / `GITHUB_TOKEN`, or reuses GitHub CLI authentication, creates
 or reuses the user's corpus fork, and prepares a dedicated contribution clone.
 Existing remotes in business repositories are not changed. Use `--read-only`
 for a client that only consumes releases; downloads of the public corpus do not
 require a login.
+
+Workspace onboarding binds the service to its one local community decision:
+
+```console
+vaws-knowledge publishing configure --config SERVICE_JSON --consent-file COMMUNITY_JSON --github-user PERSONAL_USER
+vaws-knowledge publishing configure --config SERVICE_JSON --consent-file COMMUNITY_JSON --read-only
+```
+
+`COMMUNITY_JSON` is owned by the workspace and uses schema `vaws.community.v1`,
+`workspace_id` and `revision` as 32 lowercase hexadecimal characters, and
+`decision: "enabled"` or `"disabled"`. New captures bind to the enabled revision.
+The running service rereads the service configuration and community decision
+before queuing, processing each submission, Git push and PR creation. A disabled,
+missing or invalid decision stops subsequent automatic contributions immediately;
+an already dispatched network request cannot be recalled. Local captures,
+pending records and shared downloads remain available. Re-enabling participation
+does not authorize pending records from an earlier revision, and never sweeps
+private captures into the upload queue. The operator can explicitly submit a
+retained public copy with the contribution CLI after reviewing it.
+
+Automatic publishing always requires `consent_file`, including standalone
+installations. A `publishing.enabled` flag by itself does not authorize uploads.
+Historical pending records without a current consent revision remain local.
+`publishing status` exposes effective upload eligibility for each retained record.
+
+Token-only setup does not require installing `gh`. The confirmed personal user
+must match the authenticated GitHub identity before creating a fork. HTTPS clone,
+fetch and push receive credentials only through a scoped child-process Git
+environment; credentials are never placed in remote URLs, command arguments or
+Git config files. Existing global Git settings are not changed. API and Git
+redirects cannot forward the token to another host. Token permissions and access
+to the selected repositories still determine which GitHub operations succeed.
 
 The default corpus is `vllm-ascend-workspace/vaws-knowledge-corpus`. The service
 config contains `state_root`, the three layer mounts, `shared_sync`, and `publishing` settings.

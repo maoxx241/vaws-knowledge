@@ -25,10 +25,14 @@ from vaws_knowledge.corpus_check import validate_corpus
 
 
 def configured(tmp_path):
+    pointer = tmp_path / "community.json"
+    pointer.write_text(json.dumps({"schema": "vaws.community.v1", "workspace_id": "1" * 32,
+                                  "decision": "enabled", "revision": "a" * 32}), encoding="utf-8")
     return load_config({
         "backend": "memory", "state_root": str(tmp_path / "state"),
         "layers": {"candidate": {"root": str(tmp_path / "candidate")}},
         "publishing": {"enabled": True, "repository": "example/corpus", "fork": "author/corpus",
+                       "consent_file": str(pointer),
                        "git_repo": str(tmp_path / "fork")},
     }, env={})
 
