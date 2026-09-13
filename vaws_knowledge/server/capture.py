@@ -132,9 +132,13 @@ def capture(
     index_error = None
     if ok:
         try:
-            backend.upsert(document.uri, document.path.read_text(encoding="utf-8"), layer="candidate")
+            # Keep the indexed text and ledger hash on the same snapshot. A
+            # concurrent edit during upsert must remain visible to reconciliation.
+            indexed_bytes = document.path.read_bytes()
+            indexed_text = indexed_bytes.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+            backend.upsert(document.uri, indexed_text, layer="candidate")
             indexed = True
-            remember_document(config, document)
+            remember_document(config, document, indexed_bytes=indexed_bytes)
         except Exception as exc:  # noqa: BLE001 - Markdown is already saved
             index_error = f"{type(exc).__name__}: {exc}"
     else:

@@ -152,6 +152,7 @@ class Document:
     conditions: dict[str, str] = field(default_factory=dict)
     evidence: Any = None
     captured_at: str | None = None
+    raw_text: str = field(default="", repr=False)
 
     def excerpt(self, limit: int = 240) -> str:
         text = " ".join((self.content or "").split())
@@ -221,6 +222,7 @@ def load_document(path: Path, *, layer: str, root: Path | None = None) -> Docume
         conditions=conditions,
         evidence=meta.get("evidence"),
         captured_at=meta.get("captured_at") if isinstance(meta.get("captured_at"), str) else None,
+        raw_text=text,
     )
 
 

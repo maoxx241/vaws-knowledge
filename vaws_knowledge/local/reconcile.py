@@ -179,13 +179,10 @@ def _scan_documents(
     return found, readable_roots
 
 
-def remember_document(config: Any, document: Document) -> None:
-    """Record a just-indexed document so the next query does not re-embed it."""
+def remember_document(config: Any, document: Document, *, indexed_bytes: bytes) -> None:
+    """Record the indexed snapshot so reconciliation can detect later edits."""
 
-    try:
-        fingerprint = file_fingerprint(document.path)
-    except OSError:
-        return
+    fingerprint = hashlib.sha256(indexed_bytes).hexdigest()
     with _state_lock(config):
         state = _load_state(config)
         documents = state.setdefault("documents", {})

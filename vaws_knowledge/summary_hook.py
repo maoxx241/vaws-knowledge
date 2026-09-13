@@ -9,7 +9,10 @@ import re
 import sys
 from typing import Any
 
-from vaws_knowledge.server.capture import capture
+from vaws_knowledge.distribution.errors import SwitchInProgress
+from vaws_knowledge.distribution.sync import SwitchLock
+from vaws_knowledge.markdown import document_slug, find_by_title, load_document, uri_for
+from vaws_knowledge.server.capture import candidate_root, capture
 from vaws_knowledge.server.layers import ServiceConfig, load_config
 
 
@@ -43,8 +46,38 @@ def capture_summary(payload: dict[str, Any], *, config: ServiceConfig, client: s
     for key in ("session_id", "turn_id", "conversation_id", "generation_id", "sessionId", "promptId"):
         if isinstance(payload.get(key), str):
             source[key] = payload[key]
-    saved = capture(title=title, content=text, source=source, config=config, index=False)
-    return {"status": "saved", "ref": saved["ref"], "contribution": saved["contribution"]}
+    root = candidate_root(config)
+    ident = document_slug(title)
+    # Lock only this content-derived identity. Other summaries need not wait,
+    # and an overlapping delivery never blocks the native hook. These local
+    # lock files are not knowledge entries and do not activate the backend.
+    lock = SwitchLock(root / ".summary-locks" / f"{ident}.lock")
+    try:
+        lock.acquire()
+    except SwitchInProgress:
+        return {"status": "busy"}
+    try:
+        target = root / f"{ident}.md"
+        if target.exists():
+            try:
+                existing = load_document(target, layer="candidate", root=root)
+            except (OSError, UnicodeDecodeError):
+                # A damaged or manually replaced note is not permission to
+                # overwrite it with a replay of the original response.
+                return {"status": "preserved", "ref": uri_for("candidate", target.name)}
+        else:
+            existing = find_by_title(root, title, layer="candidate")
+        if existing is not None:
+            # Preserve the first capture's provenance and timestamp even if
+            # another client supplies identical prose. An edited candidate
+            # remains the maintainer's version; replay never rolls it back.
+            status = "unchanged" if existing.content == text else "preserved"
+            return {"status": status, "ref": existing.uri,
+                    "contribution": {"status": "unchanged"}}
+        saved = capture(title=title, content=text, source=source, config=config, index=False)
+        return {"status": "saved", "ref": saved["ref"], "contribution": saved["contribution"]}
+    finally:
+        lock.release()
 
 
 def main(argv: list[str] | None = None) -> int:
