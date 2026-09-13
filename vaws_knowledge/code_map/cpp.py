@@ -6,12 +6,31 @@ macro expansion, runtime dispatch and overload resolution remain explicit gaps.
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
 import re
+
+SUPPORTED_PARSER_VERSIONS = {"tree-sitter": "0.25.2", "tree-sitter-cpp": "0.23.4"}
 
 
 def parse(data: bytes, path: str) -> dict:
     out = {"symbols": [], "references": [], "imports": [], "gaps": []}
+    # Metadata is safe to inspect before importing either native extension.
+    # Unverified parser/grammar pairs can terminate the process, so a Python
+    # exception handler around Language/Parser cannot provide this boundary.
+    observed = {}
+    for package in SUPPORTED_PARSER_VERSIONS:
+        try:
+            version = importlib.metadata.version(package)
+            observed[package] = version if isinstance(version, str) else "unavailable"
+        except (importlib.metadata.PackageNotFoundError, OSError, ValueError):
+            observed[package] = "unavailable"
+    if observed != SUPPORTED_PARSER_VERSIONS:
+        required = ", ".join(f"{name}=={version}" for name, version in SUPPORTED_PARSER_VERSIONS.items())
+        found = ", ".join(f"{name}={version[:80] or 'unknown'}" for name, version in observed.items())
+        out["gaps"].append({"kind": "parser_unavailable", "detail":
+            f"C++ requires the supported optional code extra: {required}. Found {found}; native parser was not loaded."})
+        return out
     try:
         from tree_sitter import Language, Parser
         import tree_sitter_cpp

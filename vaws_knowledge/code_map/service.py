@@ -62,10 +62,14 @@ def _fingerprint(language: str) -> str:
     if language == "python":
         versions.append(f"{sys.version_info.major}.{sys.version_info.minor}")
     else:
+        # Pre-guard C++ caches must not bypass the native-version policy.
+        # Keep Python fingerprints unchanged so their valid work is reused.
+        versions.append("native-version-policy-1")
         for package in ("tree-sitter", "tree-sitter-cpp"):
             try:
-                versions.append(importlib.metadata.version(package))
-            except importlib.metadata.PackageNotFoundError:
+                version = importlib.metadata.version(package)
+                versions.append(version if isinstance(version, str) and version else "unavailable")
+            except (importlib.metadata.PackageNotFoundError, OSError, ValueError):
                 versions.append("unavailable")
     return "/".join(versions)
 

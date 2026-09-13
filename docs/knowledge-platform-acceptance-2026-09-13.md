@@ -1,6 +1,6 @@
 # Knowledge platform acceptance — 2026-09-13
 
-Status: dated implementation evidence, 2026-09-13; final hardening and consumer pin acceptance pending
+Status: dated implementation and installed retrieval acceptance through package 778a7b6b, 2026-09-13; later parser compatibility and final consumer selection tracked separately
 
 This records actual execution for the [capability plan](knowledge-platform-plan-2026-09-13.md).
 The library serves vLLM, vllm-ascend, NPU, AI and infrastructure development.
@@ -23,6 +23,29 @@ commit `24b652de235bae9ecfd08bbc29048cf7b59b4e90`. Local committed snapshots
 skips and twelve passed subtests. Final PR-head CI passed Linux, Windows and
 macOS. Those CI runs checked GitHub's merge-test refs, distinct from the final
 squash commits; the consumer validation archive preserves both identities.
+
+Final hardening and fusion merged in
+[PR 33](https://github.com/vllm-ascend-workspace/vaws-knowledge/pull/33),
+commit `778a7b6b6a6f1b8c541dbdc6a646bc033f5e2c0f`. Its final PR head was
+`3a2e8707eed610f681f7941c0845353f8f46df02`. All three jobs checked GitHub's
+merge-test ref `cea65a73ea1462a3b0c64cb07d195b61ad70694d`; Git API verification
+confirmed the tested and consumed commits have the same parents and tree
+`0e855733d5b269e43df6b92258d4ea01bfbacf73`.
+
+| Final package check | Passed | Skipped | Passed subtests | Pytest elapsed |
+|---|---:|---:|---:|---:|
+| [Ubuntu / Python 3.11](https://github.com/vllm-ascend-workspace/vaws-knowledge/actions/runs/34747646848) | 531 | 4 | 12 | 20.50 s |
+| [Windows / Python 3.13](https://github.com/vllm-ascend-workspace/vaws-knowledge/actions/runs/34747646837/job/103698412064) | 533 | 2 | 12 | 220.61 s |
+| [macOS / Python 3.13](https://github.com/vllm-ascend-workspace/vaws-knowledge/actions/runs/34747646837/job/103698412104) | 533 | 2 | 12 | 165.68 s |
+
+Both native JUnit hashes were reread and matched; each contains 535 testcase
+elements including two skips, while the suite reports 547 tests including
+twelve subtests. Both have zero failures/errors. Ubuntu retained its actual
+pytest log and did not emit JUnit. Native model-cache-dependent distribution
+coverage was skipped where its required cache was absent; the independently
+executed native chain below remains its own evidence. Private final CI records
+are under `.vaws-local/hardening-ci/`, including `acceptance.json`, logs,
+JUnit and `tested-and-merged-trees.json`.
 
 ## Executed source and media intake: K01, K02, K08
 
@@ -317,7 +340,8 @@ continued access to a vector-only reference. The associated group passed
 0.75/1.00 metadata ablation; populated MemoryBackend old/new fusion both
 score 1.00 on that fixture. These fixture runs report incomplete maintenance
 state and establish ranking/evidence behavior, not native readiness or
-held-out quality. Final installed-project retrieval is recorded separately.
+held-out quality. The final installed-project run below used the original
+twenty questions and retained this failed provisional report unchanged.
 
 A final growth audit found two unbounded compatibility paths: cold query
 could traverse non-Markdown files/empty directories without consuming its
@@ -378,8 +402,8 @@ python -m vaws_knowledge relations --config CONFIG --ref REFERENCE --code-map MA
 
 The consumer's separate `docs/validation/` archive maps 26 families: four
 runtime owners, four consumer/support families and eighteen current business
-skills. Its checked index contains twelve versioned evidence records and seven
-explicit gaps. The bounded read-only checker verifies coverage, source/test
+skills. Its checked index contains thirteen versioned evidence records and five
+explicit applicability gaps. The bounded read-only checker verifies coverage, source/test
 references, artifact containment, hashes and XML counts. Its negative tests
 actually reject tampered JUnit and escaped artifact paths.
 
@@ -393,21 +417,118 @@ separate revisions in that archive. No unrelated NPU run was repeated merely
 to fill the archive. None of these VAWS engineering records is imported into
 the default VA-domain knowledge library.
 
-## Remaining final acceptance
+## Installed consumer acceptance at 778a7b6b
 
-- Cloud research/export and the local hourly feed have actually executed as
-  recorded above. The next scheduled Grok routine has not elapsed; its saved
-  schedule is not presented as a completed future run.
-- Final capture/cold-query/shared-upgrade hardening and the consumer pin still
-  require their own exact-source tests, PR checks and installed acceptance.
-  Package PRs 30–32 and the independent intake matrix have passed their
-  recorded CI; those results do not certify later source changes.
+The selected immutable environment actually installed package `0.7.0` at
+`778a7b6b6a6f1b8c541dbdc6a646bc033f5e2c0f`. An isolated Python probe verified
+distribution metadata, its VCS revision and loaded package hashes; it did not
+import the component worktree. The real project configuration retained its
+ordinary notes and the additional Grok feed mount. Completed package-owner
+preparation returned ready in 27.720 s with 94 catalog documents, aligned
+catalog/local snapshots and shared prepared-source identity. The consumer's
+separate upgrade record preserves an initial busy result and the bounded
+retirement of obsolete lock-owning MCP processes; those observations are not
+misreported as successful preparation or a new ordinary-task requirement.
+
+The single final installed native MCP run passed the unchanged strict test:
+twenty of twenty source-bound questions returned their designated originals
+within eight results; all four pages were found and all four explanations
+matched original bodies/hashes. Twenty selected citation spans passed exact
+line, column, text and hash verification. Both lexical and vector retrieval
+participated, with no degraded or incomplete responses and exactly three tools.
+The original three misses now ranked fourth, third and second respectively.
+Exact-source recall was 1.00; other returned references were retained but not
+independently labelled or graded for relevance.
+
+Initialize took 796.642 ms and first query 1,583.029 ms. Nineteen warm queries
+measured p50 69.020 ms, p95 85.843 ms and maximum 87.699 ms. Maximum query
+structured content was 15,292 bytes; the full MCP result also carries a text
+representation and reached 35,362 bytes. These are serialization sizes, not
+token counts. This real 94-document run is separate from the older fourteen-
+note native experiment and the separately pinned 100k capacity fixture.
+
+The test called only query and explain: no capture, explicit maintenance,
+source/configuration edit or backend stop. Eight feed files, configuration,
+installed package inputs and existing backend PIDs remained unchanged. Its
+own MCP process exited normally. Both before and after, the catalog held 94
+documents at the same snapshot and shared Git revision
+`f21e048537a9f6de52760fad97fccb5c4da32be2`, with the same verified prepared
+manifest. The complete report is
+`.vaws-local/grok-maintenance-20260913/final-installed-native-mcp.json`, SHA256
+`84f23b330b0b3bdbacfb50581a87a8674ab3bec88206ff9e854ff5203d42376e`.
+
+Consumer functional head `52b3bec5d17371447c6902ef1c0c24a011e17836` passed
+[CI 34748066882](https://github.com/vllm-ascend-workspace/vllm-ascend-workspace/actions/runs/34748066882)
+on Ubuntu/Python 3.11, Windows/Python 3.13 and macOS/Python 3.13. Job wall
+times were 82, 613 and 200 seconds respectively. Final consumer deployment,
+affected suites and upgrade provenance are carried by the rolling consumer
+`docs/knowledge-platform-validation-2026-09-13.md` record in
+[PR 169](https://github.com/vllm-ascend-workspace/vllm-ascend-workspace/pull/169).
+The [published 92d61a36 record](https://github.com/vllm-ascend-workspace/vllm-ascend-workspace/blob/92d61a365d5a4dd6884322114520e77a2eaa772e/docs/knowledge-platform-validation-2026-09-13.md)
+preserves this earlier installation stage.
+[PR 169](https://github.com/vllm-ascend-workspace/vllm-ascend-workspace/pull/169)
+was open at this cutoff. Its subsequent documentation head
+`92d61a365d5a4dd6884322114520e77a2eaa772e` had
+[CI 34748635798](https://github.com/vllm-ascend-workspace/vllm-ascend-workspace/actions/runs/34748635798)
+still running; the PR records that head's checks and merge state. Neither this
+package record nor the earlier functional CI asserts it has passed or merged.
+
+A subsequent installed C++ CLI probe exposed a separate native parser failure
+(process exit `3221225477`) in a base environment containing Tree-sitter 0.26.0
+with the C++ grammar 0.23.4. This change checks distribution metadata for the
+supported Tree-sitter 0.25.2 / C++ grammar 0.23.4 pair before importing either
+native extension. Unknown, missing or malformed version metadata returns a
+`parser_unavailable` gap; the map is partial and the last complete graph is
+retained. This boundary is necessary because a native process fault cannot be
+handled by a Python exception around parser construction.
+
+The installed 778a7b6b package with the declared `[code]` extra actually mapped
+three real files totaling 83,590 bytes at source revision
+`b36dc06d8e1b914e7a1318ee32310ef1d502007a`. It returned `ready`,
+`source_complete=true` and `complete=true`, while retaining two static-analysis
+gaps. Mapping took 419.650 ms; the complete CLI process took 679.983 ms and
+exited zero. The consumer's private `code-map-supported-probe.json` retains
+this result; `code-map-native-probe.json` retains the original crash. This
+supported dependency selection is real parsing evidence, distinct from the
+later guard's release CI and final consumed package revision.
+
+The full CLI was also executed in the original unsupported 0.26.0/0.23.4
+environment, launching the installed 778a7b6b distribution with an **explicit
+working-source override** for this guard. It read the actual 51,192-byte
+`csrc/torch_binding.cpp` at the same revision and exited 2 with `partial`,
+`source_complete=true`, `complete=false` and one `parser_unavailable` gap.
+The process confirmed `native_modules_loaded=False`; internal/whole-process
+times were 285.350/471.992 ms. This proves the guarded source behavior in that
+environment, not installation of a later release. The private consumer
+`guard-code-map-cli-probe.json` binds the result to the two loaded source hashes.
+
+Only the C++ fingerprint adds `native-version-policy-1`. A regression first
+reproduced an old successful cache bypassing the new check; the corrected path
+returns partial and preserves the last complete graph while reusing Python
+parses. Restoring the supported pair reused both unchanged files with zero
+body reads. The code-map/reference-CLI/relations group passed 48 tests in
+15.92 s. Private `cpp-guard-cache-before.xml` retains the original failing
+regression and `cpp-guard-final-related.xml` records the passing group.
+
+The 778a7b6b twenty-query result remains valid for its recorded retrieval
+inputs. The version-guard release and final consumer pin/checks belong to the
+rolling consumer delivery record; neither is certified by the old MCP run.
+
+## Delivery record and measurement boundaries
+
+- K01–K13 implementation has the scoped evidence above: independent intake CI,
+  package CI through PR 33, actual Grok export/live feed/local hourly execution
+  and installed retrieval acceptance. The later parser-compatibility correction
+  and final consumer selection require their own exact integration record in
+  PR 169; they are not certified by the earlier successful retrieval run.
+- The next scheduled Grok routine had not elapsed at the observation cutoff;
+  its saved schedule is not presented as a completed future run.
 - Scope limits remain explicit: authored query fixtures, synthetic scale
   vectors/chart values, partial whole-tree C++ mapping, a 64 GiB development
   host, native vision supplied by Codex, and no new hardware correctness claim.
 - An earlier `.vaws-local/platform-tests-20260913.xml` contains a failing
-  exploratory test. It is not a passing final suite report; final aggregate
-  validation must come from its own completed run after integration.
+  exploratory test and remains separate. The exact final aggregate CI above
+  supplies final-version validation; that old result is not relabelled passing.
 
 Private artifacts remain local. Public evidence includes no host coordinates,
 user paths or credentials; public contribution still uses the package's

@@ -135,6 +135,116 @@ def test_broken_syntax_and_missing_cpp_dependency_are_explicit(tmp_path, monkeyp
     assert cpp.parse(b"int f(){}", "f.cpp")["gaps"][0]["kind"] == "parser_unavailable"
 
 
+@pytest.mark.parametrize("versions", [
+    {"tree-sitter": "0.26.0", "tree-sitter-cpp": "0.23.4"},
+    {"tree-sitter": "0.25.2", "tree-sitter-cpp": "0.23.3"},
+    {"tree-sitter": "0.25.2", "tree-sitter-cpp": None},
+    {"tree-sitter": "", "tree-sitter-cpp": "0.23.4"},
+    {"tree-sitter": False, "tree-sitter-cpp": "0.23.4"},
+    {"tree-sitter": OSError("metadata unreadable"), "tree-sitter-cpp": "0.23.4"},
+])
+def test_cpp_unverified_versions_never_import_native_extensions(monkeypatch, versions):
+    import builtins
+    import importlib.metadata
+
+    def version(package):
+        value = versions[package]
+        if value is None:
+            raise importlib.metadata.PackageNotFoundError(package)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    native_imports = []
+    original_import = builtins.__import__
+    def guard_native_import(name, *args, **kwargs):
+        if name in {"tree_sitter", "tree_sitter_cpp"}:
+            native_imports.append(name)
+            raise AssertionError("unsafe native extension import")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib.metadata, "version", version)
+    monkeypatch.setattr(builtins, "__import__", guard_native_import)
+    result = cpp.parse(b"int f() { return 1; }", "op.cpp")
+    assert native_imports == []
+    assert result["symbols"] == result["references"] == result["imports"] == []
+    assert result["gaps"][0]["kind"] == "parser_unavailable"
+    assert "tree-sitter==0.25.2" in result["gaps"][0]["detail"]
+    assert "tree-sitter-cpp==0.23.4" in result["gaps"][0]["detail"]
+
+
+@pytest.mark.parametrize("unsupported", ["0.26.0", None, OSError("metadata unreadable")])
+def test_cpp_version_change_returns_partial_and_preserves_complete_map(tmp_path, monkeypatch, unsupported):
+    import importlib.metadata
+    root = repo(tmp_path)
+    (root / "op.cpp").write_text("int f() { return 1; }\n", encoding="utf-8")
+    revision = commit(root)
+    state = tmp_path / "state"
+    first = build_code_map(root, state, revision=revision)
+    assert first["complete"], first["gaps"]
+    report = next(state.rglob("map-*.json"))
+    saved = report.read_bytes()
+    original_version = importlib.metadata.version
+    def version(name):
+        if name == "tree-sitter":
+            if isinstance(unsupported, Exception):
+                raise unsupported
+            return unsupported
+        return original_version(name)
+    monkeypatch.setattr(importlib.metadata, "version", version)
+    partial = build_code_map(root, state, revision=revision)
+    assert partial["status"] == "partial" and partial["source_complete"]
+    assert any(gap["kind"] == "parser_unavailable" for gap in partial["gaps"])
+    assert partial["stats"]["parsed"] == 1 and partial["stats"]["reused"] == 0
+    assert report.read_bytes() == saved
+    monkeypatch.setattr(importlib.metadata, "version", original_version)
+    replay = build_code_map(root, state, revision=revision)
+    assert replay["complete"] and replay["snapshot"] == first["snapshot"]
+    assert replay["stats"]["parsed"] == replay["stats"]["bytes_read"] == 0
+    assert replay["stats"]["reused"] == 1
+
+
+def test_cpp_guard_policy_does_not_reuse_legacy_unverified_cache(tmp_path, monkeypatch):
+    import importlib.metadata
+    from vaws_knowledge.code_map import service
+
+    root = repo(tmp_path)
+    (root / "op.cpp").write_text("int f() { return 1; }\n", encoding="utf-8")
+    (root / "stable.py").write_text("def stable(): return 1\n", encoding="utf-8")
+    revision = commit(root)
+    state = tmp_path / "state"
+    first = build_code_map(root, state, revision=revision)
+    assert first["complete"], first["gaps"]
+    report = next(state.rglob("map-*.json"))
+    saved = report.read_bytes()
+    parsed_root = report.parent / "parsed"
+    cpp_file = next(row for row in first["files"] if row["path"] == "op.cpp")
+    # A previous release could cache a successful parse under an unverified
+    # combination. Seed its real old key with already parsed source facts;
+    # the regression must not actually enter an unsafe native parser.
+    def key(fingerprint):
+        return hashlib.sha256(("op.cpp" + fingerprint + cpp_file["object_id"]).encode()).hexdigest() + ".json"
+    supported = parsed_root / key(service._fingerprint("cpp"))
+    legacy = parsed_root / key(f"{service.PARSER_VERSION}/cpp/0.26.0/0.23.4")
+    legacy.write_bytes(supported.read_bytes())
+    python_fingerprint = service._fingerprint("python")
+    original_version = importlib.metadata.version
+    monkeypatch.setattr(importlib.metadata, "version",
+        lambda name: "0.26.0" if name == "tree-sitter" else original_version(name))
+    partial = build_code_map(root, state, revision=revision)
+    assert partial["status"] == "partial" and partial["source_complete"]
+    assert any(gap["kind"] == "parser_unavailable" for gap in partial["gaps"])
+    assert partial["stats"]["parsed"] == partial["stats"]["reused"] == 1
+    assert partial["stats"]["bytes_read"] == cpp_file["size"]
+    assert service._fingerprint("python") == python_fingerprint
+    assert report.read_bytes() == saved
+    monkeypatch.setattr(importlib.metadata, "version", original_version)
+    replay = build_code_map(root, state, revision=revision)
+    assert replay["complete"] and replay["snapshot"] == first["snapshot"]
+    assert replay["stats"]["parsed"] == replay["stats"]["bytes_read"] == 0
+    assert replay["stats"]["reused"] == 2
+
+
 def test_budget_cancel_and_bad_cache_preserve_last_complete_map(tmp_path):
     root = repo(tmp_path)
     (root / "a.py").write_text("def a(): pass\n", encoding="utf-8")

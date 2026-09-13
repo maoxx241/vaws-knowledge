@@ -1,6 +1,6 @@
 # Knowledge capability implementation plan
 
-Status: implemented capabilities with dated local acceptance (2026-09-13); final integration pending; not a runtime contract
+Status: implemented capabilities with recorded acceptance through package 778a7b6b, 2026-09-13; later parser compatibility and final consumer selection tracked separately; not a runtime contract
 
 ## Objective and scope
 
@@ -8,8 +8,8 @@ Implement all twelve capabilities discussed after the TeamAI / WeKnora review,
 with pre-release breaking changes where they reduce total user cost. This is
 not satisfied by adding interfaces, documenting future features, or delivering
 only the easiest subset. The existing nine VAWS design principles govern the
-implementation. Detailed user annotations, if supplied separately, must be
-reconciled into this record before final acceptance.
+implementation. The detailed user annotations received for this work are
+reconciled in the scope below.
 
 The previous 0.6.0 work is a baseline, not completion of this objective. Its
 authoritative package baseline is `e16d87287f7db51ca96efc945a9514e4146131d6`.
@@ -96,7 +96,7 @@ No generic agent runtime is added to the ordinary query path.
    aliases, assets, relations or metadata. Existing valid packs and Git history
    are reused where compatible; a new format version may require rebuilding.
 
-## Complete capability acceptance matrix
+## Implemented capability acceptance criteria
 
 | ID | Required capability | Evidence required for completion |
 |---|---|---|
@@ -120,32 +120,42 @@ inactive-provider contract are cross-cutting acceptance requirements.
 ### Evidence status at the integration cutoff
 
 The [acceptance record](knowledge-platform-acceptance-2026-09-13.md) identifies
-actual runs and their private artifacts. These rows describe the working
-implementation and executed scope, not an assertion that final PRs, installed
-pins or remote CI have completed. Fixture checks do not become device or
-production-quality evidence.
+actual runs and their private artifacts. Package PRs 30–33 are merged;
+independent intake CI, final package CI and actual installed
+`0.7.0 / 778a7b6b6a6f1b8c541dbdc6a646bc033f5e2c0f` acceptance completed.
+Consumer functional head `52b3bec5d17371447c6902ef1c0c24a011e17836` passed
+all three platforms. Its subsequent documentation-head checks and publication
+remain visible in [PR 169](https://github.com/vllm-ascend-workspace/vllm-ascend-workspace/pull/169),
+which was open at this cutoff. Fixture checks do not become device or
+production-quality evidence; unmeasured applicability is not an unimplemented
+capability. A later installed C++ parser compatibility probe found a native
+failure in the base dependency selection. This change checks supported parser
+versions before native imports and reports partial/unavailable results while
+retaining a prior complete map. Explicit `[code]` selection passed an actual
+installed three-source probe; the new package CI and final consumed revision
+remain separate release records. The successful 778a7b6b retrieval run retains
+its measured source identity.
 
 | ID | Executed evidence | Remaining delivery or applicability boundary |
 |---|---|---|
-| K01 | Eight actual format fixtures; real URL/Git/PR transport; zero-conversion repeats; interrupted writes and bounds tested; outputs queried/explained. Independent wheel CI passed Linux, Windows and macOS in PR 32. | Arbitrary production documents are not certified; final consumer pin is checked separately. |
+| K01 | Eight actual format fixtures; real URL/Git/PR transport; zero-conversion repeats; interrupted writes and bounds tested; outputs queried/explained. Independent wheel CI passed Linux, Windows and macOS in PR 32; final installed consumer reads its mounted feed. | Arbitrary production documents are not certified by the executed fixtures. |
 | K02 | Public vllm-ascend PR 16157 pinned at base `fb2820b9…` / head `debfa9bd…`; Grok Bot produced a source-linked case, verified and published it to the personal Git feed; local hourly synchronization executed. | PR was open/WIP; no NPU correctness result. The next scheduled Grok routine has not elapsed. |
 | K03 | Grok Bot produced a PR topic plus a navigation page over six existing NPU notes; both were adopted and retrieved. Actual source-link/affected-document CLI integration passed. | The agent recorded no supported association between unrelated peak-reference notes and this PR; no association is invented. |
-| K04 | Three pinned real Python/C++ files mapped with Torch registration evidence; repeat parsed/read zero source bytes. Whole Ascend tree inspected: 1,371 files, repeat reused all parsed results. | Whole-tree result remains partial for syntax/macro gaps; no runtime dispatch or NPU execution claim. |
+| K04 | Three pinned real Python/C++ files mapped with Torch registration evidence; repeat parsed/read zero source bytes. Whole Ascend tree inspected: 1,371 files, repeat reused all parsed results. Installed 778a7b6b with the declared code extra mapped three sources/83,590 bytes and returned ready; this change rejects unsupported native-parser pairs before import. | Whole-tree syntax/macro gaps remain partial. The version guard and final selected package need their own release CI/identity; no runtime dispatch or NPU execution claim. |
 | K05 | Actual source edit → before/after map → changes artifact → linked-document worklist passed through public CLI; Windows file URI and UNC boundaries tested. | Static association is an inspection hint; dynamic execution and whether a claim is still true require judgment. |
-| K06 | Grok Bot supplied five retrieval questions for each of four adopted outputs; twenty source-bound aliases retained. Public regression ablation and stale-enrichment checks executed. | The authored regression questions are not held-out labels; no model is called by query. |
-| K07 | Public retrieval fixture preserves conditions, uncertainty, table headers and exact excerpt evidence; tests cover multi-span positions, code clipping and distant context. | Clipped or unavailable evidence stays explicit and can be explained; output budgets do not prove complete source understanding. |
+| K06 | Grok Bot supplied five retrieval questions for each of four adopted outputs; all twenty unchanged questions found their original pages within eight results on final installed native MCP. Public regression ablation and stale-enrichment checks executed. | Exact-source recall is distinct from independently labelled relevance quality; no model is called by query. |
+| K07 | Public fixtures preserve conditions, uncertainty, tables and clipped code; final installed native MCP verified twenty source spans and four complete explanations against their originals. | Clipped or unavailable evidence stays explicit and can be explained; output budgets do not prove complete source understanding. |
 | K08 | Windows OCR actually read an image and a rendered scanned PDF; an independent native Agent viewed the chart and its hash-bound caption was accepted, retrieved and explained. | Native chart interpretation was Codex, not Grok vision. Tesseract/platform absence is an explicit skip; no new model download or local multimodal service. |
-| K09 | Thirteen VA-domain regression queries, 10k/100k real-file capacity runs and fourteen warm native MCP queries executed; final 100k forced unchanged maintenance completed in 9.805 s, ready; maintenance CLI bounds/errors tested in real subprocesses. | Initial 100k verified maintenance took 543.71 s; native 100k embeddings and a physical 16 GiB host were not benchmarked. Separate runs are not a controlled A/B speedup claim. |
+| K09 | Thirteen VA-domain regression queries, populated two-route regression, 10k/100k real-file capacity and final native twenty-query/four-explanation acceptance executed. Final native warm p95 was 85.843 ms on 94 documents; separately pinned 100k forced unchanged maintenance took 9.805 s, ready. | Initial 100k verified maintenance took 543.71 s; native 100k embeddings and a physical 16 GiB host were not benchmarked. Separate runs are not a controlled A/B speedup claim. |
 | K10 | Grok Bot produced a dated source-linked maintenance digest from the actual bounded PR/corpus run; it was adopted and queried with the other outputs. | This establishes one real digest, not recurring execution over multiple elapsed periods. |
-| K11 | Actual Grok Bot independent research produced four Markdown outputs and twenty questions; validated application/history, public export, live Git feed import and natural local hourly execution completed. Both saved Grok routines use the verified fixed exporter. | Future scheduled Grok cycles are not claimed as elapsed; final installed MCP checks remain separate. |
+| K11 | Actual Grok Bot independent research produced four Markdown outputs and twenty questions; application/history, public export, live Git feed import, natural local hourly execution and final installed retrieval completed. Both saved Grok routines use the verified fixed exporter. | Future scheduled Grok cycles are not claimed as elapsed; this is one executed research/digest interval. |
 | K12 | Topic selection and cross-topic fixture queries executed; native shared-release chain retained aliases/topics across two source versions and excluded stale metadata after switching. | Release fixtures establish propagation and isolation, not production-topic completeness or authority. |
-| K13 | Separate consumer engineering archive covers 26 tool families and all 18 current business skills; 90 historical suite artifacts had their hashes/XML checked; bounded archive checker and its negative tests passed. | Exact final consumer pins/CI need their affected checks. The old 90-suite summary has no source/runtime snapshot and is not relabelled as final-version execution. |
+| K13 | Separate consumer engineering archive covers 26 tool families and all 18 current business skills, with thirteen versioned evidence records and five explicit applicability gaps. Historical suite hashes/XML, bounded archive checks, final installed knowledge acceptance and three-OS consumer functional CI are recorded. | Old device/performance evidence retains its actual revision. The consumer integration report carries subsequent documentation-head CI/publication via PR 169; this plan does not claim that PR merged. |
 
 ## Delivery batches and ownership
 
-The numbered batches are delivery boundaries, not optional priority tiers.
-All must finish. Independent implementation starts only after this design and
-the module contracts have been circulated.
+All five batches below were implemented and verified in the scopes above.
+They record the coordinated ownership boundaries used for delivery.
 
 1. **Reference catalog and retrieval**: incremental catalog, structured excerpts,
    source-bound aliases/topics, content selection, evaluation runner and scale
@@ -169,7 +179,7 @@ the module contracts have been circulated.
    per-requirement audit. Keep coordinator/source-workspace changes with their
    existing owners and integrate current upstream pins.
 
-Each coherent implementation gets a reviewable PR with actual validation.
+Package PRs 30–33 delivered these changes with actual validation.
 Tests from mocks establish contracts only; live parser/model/agent/retrieval
 claims require actual execution. PRs may be stacked while dependencies develop.
 
@@ -207,5 +217,22 @@ claims require actual execution. PRs may be stacked while dependencies develop.
 - [x] Verify real Grok Bot output adoption, native three-tool MCP, 10k/100k capacity, and separate VAWS engineering coverage.
 - [x] Execute final 100k maintenance path with 20 query samples and before/after input hash verification; retain actual initial and unchanged costs.
 - [x] Complete cloud export/local feed return and actual local scheduled execution; retain the future Grok schedule boundary.
-- [ ] Complete final package/consumer integration, independent-platform CI and remaining applicability boundaries in the acceptance record.
-- [ ] Audit actual merged/installed state against this full scope.
+- [x] Complete independent intake CI, package CI through PR 33 and consumer functional-head CI; verify installed 0.7.0/778a7b6b source, real feed, twenty queries and four explanations.
+- [x] Audit merged package and installed consumer state against K01–K13, retaining historical measurements and explicit applicability limits.
+
+The C++ parser compatibility correction is implemented in this change and the
+supported `[code]` environment has executed real source mapping. Its new CI
+and final consumed pin must be recorded at their actual revision; the earlier
+retrieval result does not certify those later edits.
+
+The unsupported-environment full CLI now exits with an explicit partial result
+without loading native modules; this probe used the recorded guard source
+override, not a newly installed release. The C++ cache-policy migration and
+related code-map/CLI/relation group passed 48 tests, preserving the previous
+complete map and reusable Python parses.
+
+The rolling consumer delivery record is `docs/knowledge-platform-validation-2026-09-13.md`
+in [PR 169](https://github.com/vllm-ascend-workspace/vllm-ascend-workspace/pull/169).
+Its [published 92d61a36 stage](https://github.com/vllm-ascend-workspace/vllm-ascend-workspace/blob/92d61a365d5a4dd6884322114520e77a2eaa772e/docs/knowledge-platform-validation-2026-09-13.md)
+retains the earlier installation evidence. The PR records later package pins,
+checks and merge state separately from already successful functional-head CI.

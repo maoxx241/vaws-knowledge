@@ -131,8 +131,12 @@ not note authors.
 Queries fuse the existing vector ranking with lexical matches from mounted
 Markdown. Exact code identifiers and Chinese text remain searchable while the
 vector service is pending; the result still reports degraded/unavailable when
-that route fails. Each source URI contributes once per route. Relevance scores
-are reciprocal ranks, not truth or applicability confidence.
+that route fails. Each source URI contributes once per route. Fusion retains
+the stronger reciprocal-rank vote and weights the additional agreement vote
+by this query's relative positive lexical score. Weak common-word overlap
+therefore does not receive the same agreement bonus as strong lexical evidence.
+Vector and lexical score units are never compared. These ranking scores are
+retrieval signals, not truth or applicability confidence.
 
 Lexical queries reuse a rebuildable SQLite catalog and validate only bounded
 selected originals. Maintenance scans file metadata, reparses changed bodies,
@@ -173,6 +177,12 @@ change index readiness. An independent maintainer can use the existing
 `curate-knowledge` skill for semantic decisions and authorized note edits.
 Ordinary task agents have no added tool call or completion step. No autonomous
 LLM, scheduler, deletion, merging, promotion or public publication is enabled.
+
+C++ code mapping checks the optional `code` parser versions before loading
+native modules: Tree-sitter 0.25.2 with tree-sitter-cpp 0.23.4. An unsupported
+pair or unavailable package metadata produces a `parser_unavailable` gap and
+partial result while retaining the previous complete map. The C++ cache
+fingerprint includes this compatibility policy so older parses cannot bypass it.
 
 Repeated native final-response events retain the first timestamp and provenance,
 skip duplicate writes/contribution queueing, and preserve maintainer edits.
