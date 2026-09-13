@@ -78,6 +78,7 @@ def git_environment(token: str) -> dict[str, str]:
     options = [
         ("http.https://github.com/.extraHeader", ""),
         ("http.https://github.com/.extraHeader", f"Authorization: Basic {authorization}"),
+        ("credential.https://github.com.helper", ""),
         ("http.followRedirects", "false"),
         ("url.https://github.com/.insteadOf", "git@github.com:"),
         ("url.https://github.com/.insteadOf", "ssh://git@github.com/"),

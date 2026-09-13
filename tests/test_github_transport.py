@@ -56,6 +56,9 @@ def test_git_auth_is_ephemeral_scoped_and_inherited_trace_is_disabled(tmp_path, 
     assert env["GIT_CONFIG_VALUE_0"] == "Existing Config"
     assert not any(key.startswith("GIT_TRACE") for key in env)
     assert "GIT_CURL_VERBOSE" not in env
+    scoped = {env[f"GIT_CONFIG_KEY_{index}"]: env[f"GIT_CONFIG_VALUE_{index}"]
+              for index in range(int(env["GIT_CONFIG_COUNT"]))}
+    assert scoped["credential.https://github.com.helper"] == ""
     authorization = "Authorization: Basic " + base64.b64encode(f"x-access-token:{token}".encode()).decode()
     # A real Git child consumes the environment. No credentials enter argv or config files.
     repo = tmp_path / "git"
