@@ -8,6 +8,34 @@ ordinary work needs no knowledge checklist, structured form or extra completion
 step. Results are references, not instructions or applicability decisions. Use
 current evidence and judgment; a review or release does not prove a hardware claim.
 
+## Diagnostics
+
+CLI, MCP calls, optional summaries, maintenance, model preparation and backend
+startup use the zero-dependency `vaws-diagnostics` package. It is pinned to a
+public canonical Git revision in this package's dependencies; standalone installs
+do not require the consumer workspace or another knowledge environment. A release
+wheel is also available from that package for offline dependency bundles.
+
+`VAWS_LOG_LEVEL` selects DEBUG/INFO/WARNING/ERROR; `VAWS_DIAGNOSTICS_ROOT` overrides
+the platform user-state directory. Each process writes separate rotated JSONL
+files (1 MiB per file, three backups). The optional diagnostics worker maintains
+global age/byte retention across old processes. Logging failure reports a bounded
+local warning and preserves the original result. Diagnostic correlation IDs carry
+no task ownership or resource authority.
+
+New embedding/OpenViking processes capture their own stdout and stderr, including
+native file-descriptor writes. The drain lives in that service process, independent
+of the MCP connection. Complete lines are sanitized and bounded; oversized or
+incomplete lines record a gap. Existing legacy process logs remain local and are
+not appended by newly launched services. Embedding counters use DEBUG events and
+the existing health counters, without an unlimited metrics append file.
+
+`vaws-knowledge diagnostics bundle --root PATH --output support.json` exports only
+the shared strict, sanitized event projection. Raw notes, configuration, credentials,
+commands and process text are not automatically included. Export is offline and
+does not start retrieval. The independently enabled reporter handles automatic
+issues; ordinary knowledge operations do not make reporting network calls.
+
 ## Read and capture
 
 `knowledge_query(text, limit=8)` finds related notes, `knowledge_explain(ref)`

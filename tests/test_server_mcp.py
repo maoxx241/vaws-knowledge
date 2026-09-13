@@ -231,6 +231,7 @@ class Tools(unittest.TestCase):
             self.assertTrue(pathlib.Path(payload["path"]).is_file())
             self.assertEqual("pending", payload["index"])
             pending = call(svc, "knowledge_query", {"text": "uncertain cause"})["structuredContent"]
+            self.assertTrue(pending["results"], pending)
             self.assertEqual(["lexical"], pending["results"][0]["retrieval"])
             self.assertTrue(pending["degraded"])
             reconcile_markdown(svc.config)
@@ -330,6 +331,7 @@ class StdioSubprocessHandshake(unittest.TestCase):
             "VAWS_KNOWLEDGE_BACKEND": "memory",
             "VAWS_KNOWLEDGE_CANDIDATE_ROOT": tmp.name,
             "VAWS_KNOWLEDGE_STATE": str(pathlib.Path(tmp.name) / "instance"),
+            "VAWS_DIAGNOSTICS_ROOT": str(pathlib.Path(tmp.name) / "diagnostics"),
             "VAWS_KNOWLEDGE_PROJECT_ROOTS": "",
             "VAWS_KNOWLEDGE_SHARED_ROOTS": "",
         }

@@ -87,8 +87,9 @@ class WheelShipsCorpus(unittest.TestCase):
             python = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
             subprocess.run([str(python), "-m", "pip", "install", "--quiet", "--no-deps", "--no-index", str(wheel)], check=True)
             script = """
-import hashlib, json
+import hashlib, json, sys
 from vaws_knowledge import corpus
+assert "vaws_diagnostics" not in sys.modules
 root = corpus.corpus_root()
 print(json.dumps({
     "packaged": "site-packages" in root.as_posix() and "/data/corpus" in root.as_posix(),
@@ -96,8 +97,9 @@ print(json.dumps({
                   for p in corpus.iter_entry_files()},
 }))
 """
-            result = subprocess.run([str(python), "-I", "-c", script], cwd=tmp, check=True,
+            result = subprocess.run([str(python), "-I", "-c", script], cwd=tmp,
                                     capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
             payload = json.loads(result.stdout)
             self.assertTrue(payload["packaged"])
             self.assertEqual(payload["documents"], checkout)

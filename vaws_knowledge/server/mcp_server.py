@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any, BinaryIO, Mapping
 
 from vaws_knowledge import package_version
+from vaws_knowledge.observability import observed, capture_failure
 
 from .capture import CaptureRefused, CaptureRejected, capture
 from .layers import (
@@ -294,6 +295,7 @@ class KnowledgeService:
         self.activate_maintenance(changed=True)
         return payload
 
+    @observed("knowledge.tool")
     def call_tool(self, name: str, args: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
         """Returns ``(payload, is_error)``. Refusals are results, not crashes."""
 
@@ -353,6 +355,7 @@ class KnowledgeService:
                 True,
             )
         except Exception as exc:  # noqa: BLE001 - a tool fault is not a dead server
+            capture_failure(exc)
             return (
                 {
                     "ok": False,
@@ -381,6 +384,7 @@ def _error(request_id: Any, code: int, message: str, data: Any = None) -> dict[s
     return {"jsonrpc": "2.0", "id": request_id, "error": err}
 
 
+@observed("knowledge.mcp.request", level="DEBUG")
 def handle_message(service: KnowledgeService, message: Mapping[str, Any]) -> dict[str, Any] | None:
     if not isinstance(message, Mapping) or "method" not in message:
         return _error(message.get("id") if isinstance(message, Mapping) else None,
@@ -458,6 +462,7 @@ def handle_message(service: KnowledgeService, message: Mapping[str, Any]) -> dic
     )
 
 
+@observed("knowledge.mcp")
 def serve(
     stdin: BinaryIO | None = None,
     stdout: BinaryIO | None = None,
@@ -478,6 +483,7 @@ def serve(
         try:
             response = handle_message(service, message)
         except Exception as exc:  # noqa: BLE001 - keep the loop alive
+            capture_failure(exc, "protocol_handler_failed")
             response = _error(
                 message.get("id") if isinstance(message, Mapping) else None,
                 INTERNAL_ERROR,
@@ -487,6 +493,7 @@ def serve(
             write_message(writer, response)
 
 
+@observed("knowledge.server")
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="vaws-knowledge server",

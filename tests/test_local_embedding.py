@@ -183,6 +183,8 @@ def test_successful_start_marks_pid_running(tmp_path, monkeypatch):
     from vaws_knowledge.local import instance as module
 
     instance = LocalInstance(tmp_path)
+    # Legacy log storage failure cannot gate the new process-owned diagnostic sink.
+    instance.log_dir.write_text("unavailable legacy log directory")
     monkeypatch.setattr(instance, "describe", lambda: {"live": False, "pid": {}})
     monkeypatch.setattr(instance, "prepare_model", lambda *args, **kwargs: PreparedModel(instance.cache_dir, False, "local-load"))
     monkeypatch.setattr(instance, "_credentials", lambda: {"data_key": "private", "root_key": "private"})
@@ -197,6 +199,9 @@ def test_successful_start_marks_pid_running(tmp_path, monkeypatch):
     assert len(module.subprocess.Popen.call_args_list) == 2
     for launch in module.subprocess.Popen.call_args_list:
         assert launch.kwargs["stdin"] == module.subprocess.DEVNULL
+        assert launch.kwargs["stdout"] == module.subprocess.DEVNULL
+        assert launch.kwargs["stderr"] == module.subprocess.DEVNULL
+        assert launch.args[0][1:3] == ["-m", "vaws_knowledge.local.daemon"]
         if module.os.name == "nt":
             assert launch.kwargs["creationflags"] & module.subprocess.CREATE_NO_WINDOW
 
