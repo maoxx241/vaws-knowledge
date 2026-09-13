@@ -11,8 +11,8 @@ from typing import Any
 
 from vaws_knowledge.distribution.errors import SwitchInProgress
 from vaws_knowledge.distribution.sync import SwitchLock
-from vaws_knowledge.markdown import document_slug, find_by_title, load_document, uri_for
-from vaws_knowledge.server.capture import candidate_root, capture
+from vaws_knowledge.markdown import document_slug
+from vaws_knowledge.server.capture import candidate_root, capture, lookup_capture
 from vaws_knowledge.server.layers import ServiceConfig, load_config
 
 
@@ -57,16 +57,8 @@ def capture_summary(payload: dict[str, Any], *, config: ServiceConfig, client: s
     except SwitchInProgress:
         return {"status": "busy"}
     try:
-        target = root / f"{ident}.md"
-        if target.exists():
-            try:
-                existing = load_document(target, layer="candidate", root=root)
-            except (OSError, UnicodeDecodeError):
-                # A damaged or manually replaced note is not permission to
-                # overwrite it with a replay of the original response.
-                return {"status": "preserved", "ref": uri_for("candidate", target.name)}
-        else:
-            existing = find_by_title(root, title, layer="candidate")
+        lookup = lookup_capture(root, title, config=config, preserve_identity=True)
+        existing = lookup.document
         if existing is not None:
             # Preserve the first capture's provenance and timestamp even if
             # another client supplies identical prose. An edited candidate
@@ -74,8 +66,13 @@ def capture_summary(payload: dict[str, Any], *, config: ServiceConfig, client: s
             status = "unchanged" if existing.content == text else "preserved"
             return {"status": status, "ref": existing.uri,
                     "contribution": {"status": "unchanged"}}
-        saved = capture(title=title, content=text, source=source, config=config, index=False)
-        return {"status": "saved", "ref": saved["ref"], "contribution": saved["contribution"]}
+        if lookup.missing_ref:
+            # An observed identity disappearing is consistent with a human
+            # rename/delete. Replaying a summary must not undo that decision.
+            return {"status": "preserved", "ref": lookup.missing_ref, "title_lookup": lookup.describe()}
+        saved = capture(title=title, content=text, source=source, config=config, index=False, _lookup=lookup)
+        return {"status": "saved", "ref": saved["ref"], "contribution": saved["contribution"],
+                "title_lookup": saved["title_lookup"]}
     finally:
         lock.release()
 

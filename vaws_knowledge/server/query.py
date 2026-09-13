@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import os
 import time
-from typing import Any, Sequence
+from typing import Any, Iterator, Sequence
 
 from vaws_knowledge import package_version
 from vaws_knowledge.local.backend import Hit, backend_for_config
@@ -37,11 +37,58 @@ def load_layer_documents(config: ServiceConfig, layers: Sequence[str], *, errors
                          time_budget_ms: float | None = None) -> list[Document]:
     documents: list[Document] = []
     started, read_bytes = time.perf_counter(), 0
+    scan_entries, scan_stopped = 0, False
+    # Non-Markdown assets and empty directories must consume the cold-query
+    # budget too. Keep this shared across every mount in this one request.
+    entry_limit = max(128, max_documents * 8) if max_documents is not None else None
+
+    def scan_exhausted() -> bool:
+        nonlocal scan_stopped
+        if scan_stopped:
+            return True
+        reason = ""
+        if time_budget_ms is not None and (time.perf_counter() - started) * 1000 >= time_budget_ms:
+            reason = "time budget"
+        elif max_documents is not None and len(documents) >= max_documents:
+            reason = "document budget"
+        elif entry_limit is not None and scan_entries >= entry_limit:
+            reason = "directory-entry budget"
+        if reason:
+            scan_stopped = True
+            if errors is not None:
+                errors.append(f"bounded fallback stopped at its {reason}")
+        return scan_stopped
+
+    def fallback_paths(base: Path) -> Iterator[Path]:
+        nonlocal scan_entries
+        pending = [base]
+        while pending:
+            if scan_exhausted():
+                return
+            directory = pending.pop()
+            try:
+                with os.scandir(directory) as entries:
+                    while not scan_exhausted():
+                        try:
+                            entry = next(entries)
+                        except StopIteration:
+                            break
+                        scan_entries += 1
+                        if entry.is_dir(follow_symlinks=False):
+                            pending.append(Path(entry.path))
+                        elif entry.name.endswith(".md"):
+                            yield Path(entry.path)
+            except OSError as exc:
+                if errors is not None:
+                    errors.append(f"{directory}: {exc}")
+
     for layer in layers:
         mount = config.mount(layer)
         if not mount.present:
             continue
         for root in mount.roots:
+            if max_documents is not None and scan_exhausted():
+                return documents
             base = Path(root)
             try:
                 if not base.is_dir():
@@ -51,8 +98,7 @@ def load_layer_documents(config: ServiceConfig, layers: Sequence[str], *, errors
                 if max_documents is None:
                     paths = iter_markdown_files(base)
                 else:
-                    paths = (Path(directory) / name for directory, _, names in os.walk(base, followlinks=False)
-                             for name in names if name.endswith(".md"))
+                    paths = fallback_paths(base)
             except OSError as exc:
                 if errors is not None:
                     errors.append(f"{base}: {exc}")
@@ -77,6 +123,8 @@ def load_layer_documents(config: ServiceConfig, layers: Sequence[str], *, errors
                     if errors is not None:
                         errors.append(f"{path}: {exc}")
                     continue
+            if scan_stopped:
+                return documents
     return documents
 
 
@@ -110,7 +158,7 @@ class QueryResponse:
             "absent_fact_semantics": "unknown",
             "no_result_meaning": NO_RESULT_MEANING,
             "count": len(self.results),
-            "score_kind": "reciprocal_rank_fusion",
+            "score_kind": "rank_fusion_with_lexical_agreement",
             "inspected": self.inspected,
             "incomplete": self.incomplete,
             "catalog_snapshot": self.catalog_snapshot,

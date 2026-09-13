@@ -57,8 +57,17 @@ def lexical_search(text: str, documents: Sequence[Document], *, limit: int) -> l
 
 
 def fuse(vector: Sequence[Hit], lexical: Sequence[Hit]) -> list[tuple[Hit, list[str]]]:
-    """Reciprocal rank fusion, with one contribution per URI per retriever."""
-    scores: dict[str, float] = {}
+    """Preserve each route's rank, weighting agreement by lexical strength.
+
+    Plain RRF makes even two very weak matches outrank a strong single-route
+    match. Keep the stronger rank vote and scale the additional agreement vote
+    by this query's relative positive lexical score. Vector score units are
+    never compared to lexical units. Flat positive lexical scores recover RRF;
+    single-route ranks, URI deduplication and source validation are unchanged.
+    These are retrieval signals, not confidence in a document's claims.
+    """
+    votes: dict[str, list[float]] = {}
+    lexical_scores: dict[str, float] = {}
     selected: dict[str, Hit] = {}
     methods: dict[str, list[str]] = {}
     for method, hits in (("vector", vector), ("lexical", lexical)):
@@ -69,9 +78,18 @@ def fuse(vector: Sequence[Hit], lexical: Sequence[Hit]) -> list[tuple[Hit, list[
                 continue
             seen.add(hit.uri)
             rank += 1
-            scores[hit.uri] = scores.get(hit.uri, 0) + 1 / (60 + rank)
+            votes.setdefault(hit.uri, []).append(1 / (60 + rank))
             selected.setdefault(hit.uri, hit)
             methods.setdefault(hit.uri, []).append(method)
+            if method == "lexical" and math.isfinite(hit.score) and hit.score > 0:
+                lexical_scores[hit.uri] = hit.score
+    maximum = max(lexical_scores.values(), default=0)
+    scores = {}
+    for uri, contributions in votes.items():
+        agreement = lexical_scores.get(uri, 0) / maximum if maximum else 0
+        scores[uri] = max(contributions)
+        if len(contributions) == 2:
+            scores[uri] += min(contributions) * agreement
     result: list[tuple[Hit, list[str]]] = []
     for uri in sorted(scores, key=lambda key: (-scores[key], key)):
         hit = selected[uri]

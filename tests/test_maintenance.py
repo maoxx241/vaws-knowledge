@@ -18,6 +18,71 @@ from vaws_knowledge.server.query import query
 
 
 class Maintenance(unittest.TestCase):
+    def test_legacy_prepared_upgrade_refreshes_catalog_in_the_same_unchanged_pass(self):
+        from distribution.helpers import FakeClient, embedding_info, make_release_dir
+        from vaws_knowledge.catalog import get_catalog_document
+        from vaws_knowledge.distribution.sync import DistributionState, check_and_sync, current_shared
+        from vaws_knowledge.maintenance import refresh_references
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = self.config(root)
+            for index in range(91):
+                (root / "notes" / f"note-{index}.md").write_text(f"# Local {index}\n\nRecorded fact.\n", encoding="utf-8")
+            bootstrap = root / "bootstrap"
+            bootstrap.mkdir()
+            config = load_config({"backend": "memory", "state_root": str(config.state_root),
+                                  "layers": {"shared": str(bootstrap), "project": str(root / "notes"),
+                                             "candidate": str(root / "candidate")},
+                                  "shared_sync": {"enabled": True}, "publishing": {"enabled": False}}, env={})
+            config.retrieval = MemoryBackend()
+            release = make_release_dir(root / "release")
+            client = FakeClient()
+            self.assertEqual("switched", check_and_sync(config.state_root, str(release),
+                             embedding_info=embedding_info(), client=client).status)
+            state = DistributionState(config.state_root)
+            legacy = state.read_current()
+            # Model an already imported pre-reference release, retaining its valid vectors.
+            for key in ("prepared_root", "prepared_manifest_sha256", "references_sha256", "metadata_status"):
+                legacy.pop(key)
+            state.write_current(legacy)
+
+            def upgrade(*args, **kwargs):
+                initial = json.loads((config.state_root / "maintenance.json").read_text())
+                self.assertEqual(92, initial["catalog"]["documents"])
+                self.assertIsNone(initial["catalog"]["shared_identity"]["prepared_root"])
+                result = check_and_sync(config.state_root, str(release), embedding_info=embedding_info(),
+                                        client=client, verify=True)
+                self.assertEqual("unchanged", result.status)
+                # A local edit during this same transport still needs its owned vector update.
+                (root / "notes" / "fact.md").write_text("# Edited during legacy upgrade\n\nCurrent fact.\n", encoding="utf-8")
+                return {"status": "ok", "sync": result.to_dict()}
+
+            with patch("vaws_knowledge.publishing.run_once", side_effect=upgrade), \
+                    patch.object(client, "import_ovpack", side_effect=AssertionError("valid legacy vectors reimported")), \
+                    patch("vaws_knowledge.maintenance.refresh_references", wraps=refresh_references) as refresh:
+                result = maintain(config, verify=True)
+            self.assertTrue(result["ready"], result)
+            self.assertEqual(2, refresh.call_count)
+            self.assertEqual(94, result["catalog"]["documents"])
+            active = current_shared(config.state_root)
+            for key in ("source_git_sha", "root_uri", "prepared_root", "prepared_manifest_sha256"):
+                self.assertEqual(active[key], result["catalog"]["shared_identity"][key])
+            self.assertEqual(result["catalog"]["snapshot"], result["local_snapshot"])
+            self.assertIsNotNone(get_catalog_document(config, active["root_uri"] + "/alpha.md"))
+            self.assertEqual(92, len(config.retrieval.documents), "imported shared vectors have another owner")
+            self.assertTrue(any("Current fact." in document["content"] for document in config.retrieval.documents.values()))
+
+            with patch("vaws_knowledge.publishing.run_once", return_value={"sync": {"status": "unchanged"}}), \
+                    patch("vaws_knowledge.distribution.references.prepared_shared_documents", side_effect=AssertionError("unchanged prepared bodies reread")), \
+                    patch("vaws_knowledge.local.reconcile._scan_documents", side_effect=AssertionError("unchanged vector full scan")), \
+                    patch("vaws_knowledge.maintenance.refresh_references", wraps=refresh_references) as refresh:
+                unchanged = maintain(config, force=True)
+            self.assertTrue(unchanged["ready"], unchanged)
+            self.assertEqual(1, refresh.call_count)
+            self.assertEqual(0, unchanged["catalog"]["read_bytes"])
+            self.assertTrue(unchanged["local"]["reused"])
+
     def test_missing_or_corrupt_shared_pointer_preserves_catalog_and_reports_partial(self):
         from dataclasses import replace
         from vaws_knowledge.catalog import get_catalog_document, refresh_catalog

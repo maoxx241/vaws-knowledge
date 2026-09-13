@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from unittest.mock import Mock
+
+import pytest
 
 from vaws_knowledge.local.backend import Hit, MemoryBackend, UnavailableBackend
 from vaws_knowledge.markdown import load_document, meta_path
@@ -69,14 +72,85 @@ def test_chinese_terms_exact_identifiers_and_related_semantic_hit(tmp_path):
     assert any("参数错误" in hit["excerpt"] for hit in chinese.results)
 
 
-def test_rrf_deduplicates_each_route_before_limit_and_does_not_compare_raw_scores():
+def test_fusion_deduplicates_routes_and_ignores_vector_score_units():
     first = Hit("one", .01)
     second = Hit("two", 900)
     results = fuse([first, first, Hit("three", .001)], [second, first])
     assert results[0][0].uri == "one"
     assert results[0][1] == ["vector", "lexical"]
     assert len(results) == 3
-    assert results[0][0].score == 1 / 61 + 1 / 62
+    changed_vector_units = fuse([Hit("one", 1e9), Hit("one", -1), Hit("three", float("nan"))], [second, first])
+    assert [(hit.uri, hit.score, methods) for hit, methods in changed_vector_units] == [
+        (hit.uri, hit.score, methods) for hit, methods in results]
+
+
+@pytest.mark.parametrize("position", [1, 2])
+def test_weak_dual_route_matches_do_not_crowd_out_strong_lexical_match(position):
+    rare = Hit("rare-diagnostic", 18.0)
+    common = [Hit(f"platform-{index:02}", 0.000003) for index in range(32)]
+    direct = [Hit("direct-original", 20.0)] if position == 2 else []
+    vector = direct + [Hit(hit.uri, .99) for hit in common]
+    lexical = direct + [rare] + common
+    results = fuse(vector, lexical)
+    # The old flat RRF put every dual-route common match ahead of this note.
+    assert "rare-diagnostic" in [hit.uri for hit, _ in results[:8]]
+    assert any(hit.uri == "rare-diagnostic" and methods == ["lexical"] for hit, methods in results)
+    assert any(methods == ["vector", "lexical"] for _, methods in results[:8])
+
+
+def test_real_agreement_survives_a_stronger_lexical_outlier_and_flat_scores():
+    lexical = [Hit("rare", 20), Hit("related", 18), Hit("other", 1)]
+    results = fuse([Hit("related", -2000), Hit("semantic-only", 50000)], lexical)
+    assert results[0][0].uri == "related"
+    assert any(hit.uri == "semantic-only" and methods == ["vector"] for hit, methods in results)
+    flat = fuse([Hit("first", .1), Hit("both", .01)], [Hit("second", 2), Hit("both", 2)])
+    assert flat[0][0].uri == "both"
+    # Lexical normalization is within this query and invariant to unit scaling.
+    scaled = fuse([Hit("related", -2000), Hit("semantic-only", 50000)],
+                  [Hit(hit.uri, hit.score * 100) for hit in lexical])
+    assert [(hit.uri, hit.score) for hit, _ in results] == [(hit.uri, hit.score) for hit, _ in scaled]
+
+
+@pytest.mark.parametrize("bad", [0.0, -1.0, float("nan"), float("inf"), -float("inf")])
+def test_invalid_lexical_scores_do_not_poison_fusion_or_single_route_ranks(bad):
+    lexical = [Hit("first", bad), Hit("second", bad)]
+    assert [hit.uri for hit, _ in fuse([], lexical)] == ["first", "second"]
+    vector = [Hit("semantic", bad), Hit("first", bad)]
+    results = fuse(vector, lexical)
+    assert {hit.uri for hit, _ in results} == {"first", "second", "semantic"}
+    assert all(math.isfinite(hit.score) and hit.score > 0 for hit, _ in results)
+
+
+@pytest.mark.parametrize("catalog", [False, True])
+def test_public_hybrid_query_keeps_exact_alias_and_semantic_reference_among_common_hits(tmp_path, catalog):
+    from vaws_knowledge.catalog import refresh_catalog
+    from vaws_knowledge.markdown import normalized_sha256
+
+    config, notes = setup(tmp_path)
+    raw = "# Diagnostic notebook\n\nObservation has not established its cause.\n"
+    path = notes / "diagnostic.md"
+    path.write_text(raw, encoding="utf-8")
+    meta_path(path).write_text(json.dumps({"retrieval": {"source_sha256": normalized_sha256(raw),
+        "aliases": ["tensor_fold_73 graph revision"]}}), encoding="utf-8")
+    semantic = notes / "semantic.md"
+    semantic.write_text("# Related execution evidence\n\nReplay diverged after a shape change; diagnosis remains open.\n", encoding="utf-8")
+    vector = [Hit(load_document(semantic, layer="project", root=notes).uri, .99)]
+    for index in range(40):
+        common = notes / f"platform-{index:02}.md"
+        common.write_text(f"# Platform {index}\n\ngraph revision constants notes.\n", encoding="utf-8")
+        vector.append(Hit(load_document(common, layer="project", root=notes).uri, .98))
+    config.retrieval.search = Mock(side_effect=lambda *args, limit, **kwargs: vector[:limit])
+    config.retrieval.upsert = Mock(side_effect=AssertionError("query must not embed"))
+    if catalog:
+        assert refresh_catalog(config)["status"] == "ready"
+    result = query(config, text="tensor_fold_73 graph revision", limit=8)
+    refs = {hit["slug"] for hit in result.results}
+    assert {"diagnostic", "semantic"} <= refs
+    assert len(result.results) <= 8 and result.source_reads <= 8
+    diagnostic = next(hit for hit in result.results if hit["slug"] == "diagnostic")
+    assert diagnostic["evidence"]["content_sha256"] == normalized_sha256(raw)
+    assert "cause" in diagnostic["excerpt"]
+    assert result.to_dict()["score_kind"] == "rank_fusion_with_lexical_agreement"
 
 
 def test_deleted_disabled_and_forged_identities_cannot_appear_via_fallback(tmp_path):

@@ -350,22 +350,29 @@ def save_document(
         ident = slug or document_slug(heading)
         target = root / f"{ident}.md"
         if target.is_file():
-            try:
-                existing = load_document(target, layer=layer, root=root)
-            except (OSError, UnicodeDecodeError):
-                existing = None
-            if existing is not None and existing.title.strip() != heading:
+            existing = load_document(target, layer=layer, root=root, max_bytes=MAX_REFERENCE_BYTES,
+                                     max_metadata_bytes=MAX_METADATA_BYTES)
+            if existing.title.strip() != heading:
                 ident = f"{ident}-{title_digest(heading + ident)}"
                 target = root / f"{ident}.md"
+                if target.exists() or target.is_symlink():
+                    if target.is_symlink() or not target.is_file():
+                        raise ValueError("alternate capture target is occupied; existing state was preserved")
+                    alternate = load_document(target, layer=layer, root=root, max_bytes=MAX_REFERENCE_BYTES,
+                                              max_metadata_bytes=MAX_METADATA_BYTES)
+                    if alternate.title.strip() != heading:
+                        raise ValueError("alternate capture target is occupied; existing state was preserved")
     previous: dict[str, Any] = {}
     if meta_path(target).is_file():
+        meta_path(target).resolve().relative_to(root.resolve())
         try:
-            loaded = json.loads(meta_path(target).read_text(encoding="utf-8"))
+            loaded = json.loads(read_bounded(meta_path(target), MAX_METADATA_BYTES).decode("utf-8"))
             if isinstance(loaded, dict):
                 previous = loaded
         except (OSError, json.JSONDecodeError):
             pass
-    _atomic_write_text(target, render_markdown(heading, body))
+    rendered = render_markdown(heading, body)
+    _atomic_write_text(target, rendered)
     cleaned_source = _clean_mapping(source)
     cleaned_conditions: dict[str, str] = {}
     if isinstance(conditions, Mapping):
@@ -399,7 +406,8 @@ def save_document(
     if retrieval is not None:
         meta["retrieval"] = dict(retrieval)
     _atomic_write_text(meta_path(target), json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
-    return load_document(target, layer=layer, root=root)
+    return document_from_text(rendered.replace("\r\n", "\n").replace("\r", "\n"),
+                              path=target, layer=layer, root=root, metadata=meta)
 
 
 def delete_document(path: Path) -> None:
