@@ -8,6 +8,10 @@ from pathlib import Path
 
 
 def _memory_limit(megabytes: int):
+    if sys.platform == "darwin":
+        # Darwin can reserve more virtual memory at startup than this budget.
+        # The launching parent supervises resident memory via libproc instead.
+        return None
     if os.name != "nt":
         import resource
         resource.setrlimit(resource.RLIMIT_AS, (megabytes * 1024 * 1024,) * 2)

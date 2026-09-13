@@ -19,7 +19,7 @@ from knowledge_intake.schedule import NS, schedule_spec, task_xml
 class FeedTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.repo = self.root / "publisher"
         self.repo.mkdir()
         self.git("init", "-q")

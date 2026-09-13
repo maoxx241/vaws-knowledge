@@ -17,6 +17,9 @@ def main() -> None:
         python = environment / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
         subprocess.run([str(python), "-m", "pip", "install", "--no-deps", "--no-index", str(wheel)], check=True, timeout=60, cwd=root)
         subprocess.run([str(python), "-I", "-c", "import importlib.util,knowledge_intake; assert importlib.util.find_spec('vaws_knowledge') is None; assert importlib.util.find_spec('docx') is None"], check=True, timeout=10, cwd=root)
+        feed = python.parent / ("knowledge-feed.exe" if sys.platform == "win32" else "knowledge-feed")
+        help_result = subprocess.run([str(feed), "--help"], capture_output=True, text=True, encoding="utf-8", check=True, timeout=10, cwd=root)
+        assert "schedule" in help_result.stdout and "sync" in help_result.stdout
         source = root / "HCCL.md"
         source.write_text("# HCCL reference\n\nSynthetic wheel installation fixture", encoding="utf-8")
         config = root / "intake.json"
@@ -29,7 +32,7 @@ def main() -> None:
         notes = list((root / "output").rglob("*.md"))
         assert len(notes) == 1
         assert "Synthetic wheel" in notes[0].read_text(encoding="utf-8")
-    print(json.dumps({"status": "passed", "wheel": wheel.name, "no_vaws_dependency": True, "actual_markdown_conversion": True, "unchanged_conversions": 0}))
+    print(json.dumps({"status": "passed", "wheel": wheel.name, "no_vaws_dependency": True, "actual_markdown_conversion": True, "unchanged_conversions": 0, "installed_feed_entrypoint": True}))
 
 
 if __name__ == "__main__":

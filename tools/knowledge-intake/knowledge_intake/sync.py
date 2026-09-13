@@ -84,7 +84,7 @@ def _parse(raw_path: Path, spec: dict, limits: Limits, budget: Budget) -> dict:
         env[variable] = "1"
     package_root = str(Path(__file__).resolve().parent.parent)
     env["PYTHONPATH"] = package_root + os.pathsep + env.get("PYTHONPATH", "")
-    _, raw = command([sys.executable, "-m", "knowledge_intake.worker", str(raw_path), str(options_path)], timeout=budget.remaining(), max_bytes=limits.output_chars * 8 + 256_000, env=env)
+    _, raw = command([sys.executable, "-m", "knowledge_intake.worker", str(raw_path), str(options_path)], timeout=budget.remaining(), max_bytes=limits.output_chars * 8 + 256_000, env=env, memory_mb=limits.memory_mb)
     return json.loads(raw)
 
 

@@ -60,7 +60,7 @@ def _url_bytes(url: str, budget: Budget, *, max_bytes: int | None = None) -> tup
     limit = min(max_bytes or budget.limits.file_bytes, budget.limits.total_bytes - budget.bytes)
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path(__file__).resolve().parent.parent) + os.pathsep + env.get("PYTHONPATH", "")
-    _, raw = command([sys.executable, "-m", "knowledge_intake.fetch", url, str(limit), str(budget.remaining()), str(budget.limits.memory_mb)], timeout=budget.remaining(), max_bytes=limit + 16_384, env=env)
+    _, raw = command([sys.executable, "-m", "knowledge_intake.fetch", url, str(limit), str(budget.remaining()), str(budget.limits.memory_mb)], timeout=budget.remaining(), max_bytes=limit + 16_384, env=env, memory_mb=budget.limits.memory_mb)
     header, separator, data = raw.partition(b"\n")
     if not separator or len(data) > limit:
         raise ImportLimit("download byte budget reached")
@@ -112,7 +112,11 @@ def github_api(endpoint: str, budget: Budget) -> object:
     executable = _gh_path()
     budget.scan()
     if executable:
-        _, raw = command([executable, "api", endpoint], timeout=budget.remaining(), max_bytes=min(budget.limits.file_bytes, budget.limits.total_bytes - budget.bytes))
+        code, raw = command([executable, "api", endpoint], timeout=budget.remaining(), max_bytes=min(budget.limits.file_bytes, budget.limits.total_bytes - budget.bytes), check=False)
+        if code == 4:  # gh's documented authentication-required exit; public reads need no login.
+            raw, _ = _url_bytes("https://api.github.com/" + endpoint, budget)
+        elif code:
+            raise IntakeError(f"{Path(executable).name} failed (exit {code})")
     else:
         raw, _ = _url_bytes("https://api.github.com/" + endpoint, budget)
     # Count actual network bytes separately from documents; API pagination consumes the same total limit.

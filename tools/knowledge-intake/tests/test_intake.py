@@ -24,7 +24,7 @@ HAS_DOCUMENTS = all(importlib.util.find_spec(module) for module in ("docx", "ppt
 class IntakeTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.source = self.root / "input"
         self.source.mkdir()
         self.state = self.root / "state"

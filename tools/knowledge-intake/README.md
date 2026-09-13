@@ -129,8 +129,10 @@ unsupported files), 16 MiB/file, 64 MiB read bytes, 120 seconds, 100 PDF pages o
 slides, 100,000 spreadsheet cells, 16 million image pixels, 64 MiB expanded
 Office archives and 500,000 extracted characters. Set positive overrides under
 `limits`; unknown limit names fail clearly. Document parsing runs in a
-disposable process with a 512 MiB memory ceiling and one BLAS/OMP thread.
-Windows uses an OS Job Object; Unix uses an address-space limit. Process output
+disposable process with a 512 MiB memory budget and one BLAS/OMP thread.
+Windows uses an OS Job Object; Linux uses an address-space limit. macOS uses
+parent-side resident-memory sampling every 10 ms; brief overshoot is possible
+between samples. Downloads use the same process memory budget. Process output
 and wall time are also bounded. There are no background workers or resident
 parsers.
 

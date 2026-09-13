@@ -5,6 +5,7 @@ import json
 import math
 import os
 import subprocess
+import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -137,9 +138,35 @@ def bounded_read(path: Path, budget: Budget) -> bytes:
     return data
 
 
+def _darwin_rss_reader():
+    """Read the child's resident bytes, without launching a process per sample."""
+    import ctypes
+
+    # Darwin proc_taskinfo, <sys/proc_info.h>: six uint64 and twelve int32.
+    class TaskInfo(ctypes.Structure):
+        _fields_ = [("virtual", ctypes.c_uint64), ("resident", ctypes.c_uint64),
+                    ("times", ctypes.c_uint64 * 4), ("counters", ctypes.c_int32 * 12)]
+
+    libproc = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
+    query = libproc.proc_pidinfo
+    query.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_int]
+    query.restype = ctypes.c_int
+
+    def resident_bytes(pid: int) -> int:
+        info = TaskInfo()
+        if query(pid, 4, 0, ctypes.byref(info), ctypes.sizeof(info)) != ctypes.sizeof(info):
+            raise IntakeError("cannot inspect subprocess resident memory")
+        return info.resident
+
+    return resident_bytes
+
+
 def command(args: list[str], *, timeout: float, max_bytes: int, cwd: Path | None = None,
-            env: dict | None = None, check: bool = True) -> tuple[int, bytes]:
+            env: dict | None = None, check: bool = True, memory_mb: int | None = None) -> tuple[int, bytes]:
     """Pipe output into bounded files; kill at the actual byte/time limit."""
+    # RLIMIT_AS on macOS can reject an ordinary Python process's startup VM.
+    # Supervise RSS in the parent instead; the 10ms sampling permits brief overshoot.
+    resident_bytes = _darwin_rss_reader() if sys.platform == "darwin" and memory_mb else None
     creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
         process = subprocess.Popen(args, cwd=cwd, env=env, stdout=stdout, stderr=stderr, creationflags=creationflags)
@@ -150,6 +177,15 @@ def command(args: list[str], *, timeout: float, max_bytes: int, cwd: Path | None
                     raise ImportLimit("subprocess time budget reached")
                 if os.fstat(stdout.fileno()).st_size + os.fstat(stderr.fileno()).st_size > max_bytes:
                     raise ImportLimit("subprocess output budget reached")
+                if resident_bytes is not None:
+                    try:
+                        used = resident_bytes(process.pid)
+                    except IntakeError:
+                        if process.poll() is not None:  # exited between poll and proc_pidinfo
+                            break
+                        raise
+                    if used > memory_mb * 1024 * 1024:
+                        raise ImportLimit("subprocess resident memory budget reached")
                 time.sleep(.01)
             if os.fstat(stdout.fileno()).st_size + os.fstat(stderr.fileno()).st_size > max_bytes:
                 raise ImportLimit("subprocess output budget reached")
