@@ -14,6 +14,7 @@ from vaws_knowledge.distribution.sync import SwitchLock
 from vaws_knowledge.markdown import document_slug
 from vaws_knowledge.server.capture import candidate_root, capture, lookup_capture
 from vaws_knowledge.server.layers import ServiceConfig, load_config
+from vaws_knowledge.observability import observed, capture_failure
 
 
 def capture_summary(payload: dict[str, Any], *, config: ServiceConfig, client: str) -> dict[str, Any]:
@@ -77,6 +78,7 @@ def capture_summary(payload: dict[str, Any], *, config: ServiceConfig, client: s
         lock.release()
 
 
+@observed("knowledge.summary")
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--client", required=True)
@@ -88,8 +90,8 @@ def main(argv: list[str] | None = None) -> int:
             payload = json.loads(raw)
             if isinstance(payload, dict):
                 capture_summary(payload, config=load_config(path=args.config), client=args.client)
-    except Exception:
-        pass  # optional capture must never interrupt the client
+    except Exception as exc:
+        capture_failure(exc, "summary_unavailable")  # optional capture never interrupts the client
     print("{}")  # observe-only, never continue or block the client
     return 0
 

@@ -9,6 +9,7 @@ still open.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import secrets
 import shutil
@@ -22,6 +23,8 @@ import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
+from vaws_knowledge.observability import observed
+from vaws_diagnostics import current_context, get_recorder
 
 from vaws_knowledge.local.embedding import (
     EMBEDDING_DIMENSION, EMBEDDING_MODEL, PreparedModel, prepare_embedding_cache,
@@ -410,6 +413,7 @@ class LocalInstance:
             raise RuntimeError("active embedding manifest differs from its shared source version")
         return manifest
 
+    @observed("knowledge.model.prepare")
     def prepare_model(self, manifest: Any | None = None, *, verify: bool = False) -> PreparedModel:
         return prepare_embedding_cache(
             self.cache_dir, source_cache=self.source_cache,
@@ -455,6 +459,7 @@ class LocalInstance:
         self._save_credentials(updated)
         credentials.update(updated)
 
+    @observed("knowledge.backend.ensure")
     def ensure(self, *, verify_model: bool = False, model_manifest: Any | None = None) -> dict[str, Any]:
         with InstanceLock(self.lock_path):
             current = self.describe()
@@ -468,7 +473,6 @@ class LocalInstance:
             self._stop_owned(current.get("pid") or {})
             self._activate_model(prepared)
             self.state_root.mkdir(parents=True, exist_ok=True)
-            self.log_dir.mkdir(parents=True, exist_ok=True)
             self.data_dir.mkdir(parents=True, exist_ok=True)
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             embed_port = _unused_port()
@@ -476,6 +480,7 @@ class LocalInstance:
             credentials.setdefault("root_key", secrets.token_urlsafe(32))
             self._save_credentials(credentials)
             config = {
+                "log": {"output": "stdout", "level": logging.getLevelName(get_recorder("vaws-knowledge").level)},
                 "storage": {
                     "workspace": str(self.data_dir),
                     "vectordb": {"name": "context", "backend": "local"},
@@ -507,10 +512,12 @@ class LocalInstance:
             self.config_path.chmod(0o600)
             env = loopback_env()
             env["VAWS_KNOWLEDGE_STATE"] = str(self.state_root)
+            env["VAWS_DIAGNOSTICS_CONTEXT"] = json.dumps(current_context(), separators=(",", ":"))
             embed_cmd = [
                 sys.executable,
                 "-m",
-                "vaws_knowledge.local.embedding",
+                "vaws_knowledge.local.daemon",
+                "embedding",
                 "--host",
                 LOOPBACK,
                 "--port",
@@ -526,11 +533,10 @@ class LocalInstance:
                     "openviking-server is not on PATH; install vaws-knowledge with "
                     f"OpenViking {OPENVIKING_VERSION}"
                 )
-            ov_cmd = [ov_bin, "--config", str(self.config_path)]
-            with (self.log_dir / "embedding.log").open("ab") as embed_log:
-                embed_proc = subprocess.Popen(
-                    embed_cmd, env=env, stdout=embed_log, stderr=subprocess.STDOUT, **_popen_kwargs()
-                )
+            ov_cmd = [sys.executable, "-m", "vaws_knowledge.local.daemon", "openviking", "--config", str(self.config_path)]
+            embed_proc = subprocess.Popen(
+                embed_cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_popen_kwargs()
+            )
             try:
                 record = {
                     "status": "starting", "embedding_pid": embed_proc.pid,
@@ -548,10 +554,9 @@ class LocalInstance:
                     log_path=self.log_dir / "embedding.log",
                     name="embedding server",
                 )
-                with (self.log_dir / "openviking.log").open("ab") as ov_log:
-                    ov_proc = subprocess.Popen(
-                        ov_cmd, env=env, stdout=ov_log, stderr=subprocess.STDOUT, **_popen_kwargs()
-                    )
+                ov_proc = subprocess.Popen(
+                    ov_cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_popen_kwargs()
+                )
                 try:
                     record["openviking_pid"] = ov_proc.pid
                     self._save_pid(record)
@@ -593,6 +598,7 @@ class LocalInstance:
             raise RuntimeError("knowledge instance tenant is not initialized")
         return key
 
+    @observed("knowledge.backend.stop")
     def stop(self) -> None:
         with InstanceLock(self.lock_path):
             self._stop_owned(self._read_pid() or {})
@@ -635,7 +641,7 @@ class LocalInstance:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             if proc.poll() is not None:
-                tail = _log_tail(log_path)
+                tail = _process_log_tail(proc.pid, log_path)
                 raise RuntimeError(
                     f"{name} exited {proc.returncode} before becoming ready on loopback"
                     + (f": {tail}" if tail else "")
@@ -643,16 +649,33 @@ class LocalInstance:
             if _health(url):
                 return
             time.sleep(0.2)
-        tail = _log_tail(log_path)
+        tail = _process_log_tail(proc.pid, log_path)
         raise RuntimeError(
             f"{name} did not become ready on loopback"
             + (f": {tail}" if tail else "")
         )
 
 
+def _process_log_tail(pid: int, legacy_path: Path) -> str:
+    from itertools import islice
+    from vaws_diagnostics.logging import default_root
+    # New process logs are rotated JSONL. Old owned instances keep their logs.
+    folder = default_root() / "events" / "vaws-knowledge"
+    try:
+        candidates = list(islice(folder.glob(f"{int(pid)}-*.jsonl"), 8))
+        if candidates:
+            return _log_tail(max(candidates, key=lambda item: item.stat().st_mtime_ns))
+    except OSError:
+        pass
+    return _log_tail(legacy_path)
+
+
 def _log_tail(path: Path, limit: int = 1200) -> str:
     try:
-        text = path.read_text(encoding="utf-8", errors="replace")
+        with path.open("rb") as stream:
+            stream.seek(0, 2)
+            stream.seek(max(0, stream.tell() - limit * 4))
+            text = stream.read(limit * 4).decode("utf-8", errors="replace")
     except OSError:
         return ""
     return text[-limit:].strip()

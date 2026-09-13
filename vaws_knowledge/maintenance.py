@@ -22,6 +22,7 @@ from vaws_knowledge.local.instance import instance_for_config
 from vaws_knowledge.local.reconcile import reconcile_markdown
 from vaws_knowledge.markdown import SHARED_BOOTSTRAP_URI
 from vaws_knowledge.server.layers import ServiceConfig, load_config
+from vaws_knowledge.observability import observed, capture_failure
 
 POLL_SECONDS = 10
 CHECK_SECONDS = 60
@@ -67,6 +68,7 @@ def refresh_references(config: ServiceConfig, previous: dict[str, Any] | None = 
     except Exception as exc:
         # Rollback of a failed prepared-source read preserves the previous
         # catalog. The next pass retries; absence is never fabricated.
+        capture_failure(exc, "catalog_unavailable")
         report = {"status": "partial", "reason": f"{type(exc).__name__}: {exc}"[:1000]}
     if report.get("status") == "ready":
         report["shared_identity"] = identity
@@ -85,6 +87,7 @@ def _local_delta(uris: list[str]) -> list[str]:
     return [uri for uri in uris if isinstance(uri, str) and uri.startswith(prefixes)]
 
 
+@observed("knowledge.maintain", level="DEBUG")
 def maintain(config: ServiceConfig, *, verify: bool = False, force: bool = False) -> dict[str, Any]:
     """Run one bounded pass. Process ownership prevents concurrent repairs."""
     root = instance_for_config(config).state_root
@@ -113,6 +116,7 @@ def maintain(config: ServiceConfig, *, verify: bool = False, force: bool = False
         try:
             result["catalog"] = refresh_references(config, previous.get("catalog"), verify=audit)
         except Exception as exc:
+            capture_failure(exc, "catalog_unavailable")
             result["catalog"] = {"status": "unavailable", "reason": f"{type(exc).__name__}: {exc}"[:1000]}
         if "health" in previous:
             result["health"] = previous["health"]
@@ -127,6 +131,7 @@ def maintain(config: ServiceConfig, *, verify: bool = False, force: bool = False
                                     "snapshot": health.get("snapshot"), "reused": health.get("reused", False)}
                 result["next_health"] = now + (60 if health["status"] == "busy" else HEALTH_SECONDS)
             except Exception as exc:
+                capture_failure(exc, "health_unavailable")
                 result["health"] = {"status": "unknown", "reason": f"{type(exc).__name__}: {exc}"[:1000]}
                 result["next_health"] = now + 60
         try:
@@ -194,6 +199,7 @@ def maintain(config: ServiceConfig, *, verify: bool = False, force: bool = False
                 if audit and result["ready"]:
                     result["next_verify"] = now + VERIFY_SECONDS
         except Exception as exc:
+            capture_failure(exc, "maintenance_unavailable")
             result["reason"] = f"{type(exc).__name__}: {exc}"[:1000]
         result["ready"] = result["ready"] and result["catalog"].get("status") == "ready"
         result["status"] = "ready" if result["ready"] else "pending"
@@ -236,7 +242,9 @@ class MaintenanceWorker:
                 # and audit deadlines decide whether existing work is reusable.
                 maintain(self.config, force=changed)
             except Exception:
-                pass  # Retry later; maintenance cannot terminate the MCP stream.
+                # The observed maintenance boundary retained the failure. Retry
+                # later without terminating or writing on the MCP stdout stream.
+                pass
             self.wakeup.wait(POLL_SECONDS)
 
     def request(self) -> None:
@@ -266,6 +274,7 @@ def project_config(project: Path, path: Path | None = None) -> ServiceConfig:
     return load_config(path=path)
 
 
+@observed("knowledge.prepare")
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Prepare local knowledge models, sources and verified indexes")
     parser.add_argument("--project", type=Path, default=Path.cwd())
@@ -276,6 +285,7 @@ def main(argv: list[str] | None = None) -> int:
         result = maintain(config, verify=True, force=True)
         result["config"] = str(config.config_path)
     except Exception as exc:
+        capture_failure(exc, "prepare_unavailable")
         result = {"status": "pending", "ready": False, "reason": f"{type(exc).__name__}: {exc}"}
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("ready") else 1

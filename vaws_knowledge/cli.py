@@ -6,6 +6,7 @@ import argparse
 import os
 import sys
 from typing import Callable
+from vaws_knowledge.observability import observed
 
 
 def _dispatch(handler: Callable[[list[str]], int], argv: list[str]) -> int:
@@ -20,6 +21,7 @@ def _dispatch(handler: Callable[[list[str]], int], argv: list[str]) -> int:
         return 130
 
 
+@observed("knowledge.cli")
 def main(argv: list[str] | None = None) -> int:
     if os.name == "nt":
         for stream in (sys.stdin, sys.stdout, sys.stderr):
@@ -35,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         nargs="?",
         choices=(
             "server",
+            "diagnostics",
             "prepare",
             "health",
             "catalog",
@@ -70,6 +73,10 @@ def main(argv: list[str] | None = None) -> int:
     rest = list(args.rest)
     if rest[:1] == ["--"]:
         rest = rest[1:]
+
+    if command == "diagnostics":
+        from vaws_diagnostics.cli import main as diagnostics_main
+        return diagnostics_main(rest)
 
     if command == "server":
         from vaws_knowledge.server.mcp_server import main as server_main

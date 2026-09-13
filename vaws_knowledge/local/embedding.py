@@ -326,19 +326,11 @@ def serve(
             counts["characters"] += sum(len(str(item)) for item in texts)
             counts["compute_s"] += elapsed
             if metrics_path is not None:
-                metrics_path.parent.mkdir(parents=True, exist_ok=True)
-                with metrics_path.open("a", encoding="utf-8") as stream:
-                    stream.write(
-                        json.dumps(
-                            {
-                                "at": time.time(),
-                                "n": len(texts),
-                                "characters": sum(len(str(item)) for item in texts),
-                                "compute_s": elapsed,
-                            }
-                        )
-                        + "\n"
-                    )
+                from vaws_diagnostics import get_recorder
+                get_recorder("vaws-knowledge").event(
+                    "DEBUG", "embedding.request", count=len(texts),
+                    characters=sum(len(str(item)) for item in texts), duration_ms=elapsed * 1000,
+                )
             self._reply(
                 {
                     "object": "list",

@@ -231,6 +231,7 @@ class Tools(unittest.TestCase):
             self.assertTrue(pathlib.Path(payload["path"]).is_file())
             self.assertEqual("pending", payload["index"])
             pending = call(svc, "knowledge_query", {"text": "uncertain cause"})["structuredContent"]
+            self.assertTrue(pending["results"], pending)
             self.assertEqual(["lexical"], pending["results"][0]["retrieval"])
             self.assertTrue(pending["degraded"])
             reconcile_markdown(svc.config)
