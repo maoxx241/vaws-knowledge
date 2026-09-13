@@ -5,12 +5,19 @@ import json
 import urllib.error
 import urllib.request
 import urllib.parse
-from typing import Any, Mapping, Optional, Protocol
+from typing import Any, Callable, Mapping, Optional, Protocol
 
 from vaws_knowledge.contribution.errors import TransportError
 
 API_ROOT = "https://api.github.com"
 API_VERSION = "2022-11-28"
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, fp, code, msg, headers, newurl):
+        # Authenticated API requests may never forward a token to another URL.
+        return None
+
 
 class GitHubError(Exception):
     """A GitHub API call failed."""
@@ -43,6 +50,8 @@ class UrllibContributionGitHub:
     def __init__(self, token: str) -> None:
         if not token:
             raise TransportError("missing GITHUB_TOKEN", status=401)
+        if any(character.isspace() or ord(character) < 32 for character in token):
+            raise TransportError("invalid GitHub token whitespace or control characters", status=401)
         self._token = token
 
     def _request(self, method: str, path: str, body: Optional[Mapping[str, Any]] = None) -> tuple[Any, dict[str, str]]:
@@ -62,11 +71,12 @@ class UrllibContributionGitHub:
             headers["Content-Type"] = "application/json"
         request = urllib.request.Request(url, data=data, method=method, headers=headers)
         try:
-            with urllib.request.urlopen(request, timeout=60) as response:
+            opener = urllib.request.build_opener(_NoRedirect())
+            with opener.open(request, timeout=60) as response:
                 raw = response.read()
                 header_map = {key: value for key, value in response.headers.items()}
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", "replace")
+            detail = exc.read(4096).decode("utf-8", "replace").replace(self._token, "[redacted]")
             raise GitHubError(exc.code, path, detail) from exc
         except urllib.error.URLError as exc:
             raise GitHubError(0, path, str(exc)) from exc
@@ -119,10 +129,15 @@ def create_pull(
     base: str,
     title: str,
     body: str,
+    authorize: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
     existing = find_open_pull(api, upstream=upstream, fork=fork, branch=branch)
     if existing is not None:
         return existing
+    if authorize is not None and not authorize():
+        from vaws_knowledge.contribution.consent import ContributionPaused
+
+        raise ContributionPaused("contribution authorization changed before PR creation")
     try:
         created = api.post(
             f"/repos/{upstream}/pulls",

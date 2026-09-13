@@ -139,7 +139,7 @@ def test_daemon_uses_original_entrypoint_arguments(monkeypatch):
 ])
 def test_real_cli_argument_errors_stay_in_inherited_private_root(diagnostic_root, arguments, exit_code, classification):
     proc = subprocess.run([sys.executable, "-m", "vaws_knowledge", *arguments],
-                          capture_output=True, text=True, timeout=10)
+                          capture_output=True, text=True, encoding="utf-8", timeout=10)
     assert proc.returncode == exit_code
     ended = [row for row in records(diagnostic_root) if row["event"] == "operation.end"]
     assert len(ended) == 1
@@ -151,7 +151,7 @@ def test_expected_redaction_findings_are_not_tool_failures(diagnostic_root, tmp_
     path = tmp_path / "note.md"
     path.write_text("# Fixture\n\n" + ".".join(map(str, (10, 43, 51, 19))), encoding="utf-8")
     proc = subprocess.run([sys.executable, "-m", "vaws_knowledge", "redact", "--check", str(path)],
-                          capture_output=True, text=True, timeout=10)
+                          capture_output=True, text=True, encoding="utf-8", timeout=10)
     assert proc.returncode == 1
     events = records(diagnostic_root)
     assert any(row["event"] == "redaction.findings" for row in events)

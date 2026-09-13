@@ -79,6 +79,8 @@ class PendingRecord:
     created_at: str = ""
     updated_at: str = ""
     notes: list[str] = field(default_factory=list)
+    consent_workspace_id: str | None = None
+    consent_revision: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -111,6 +113,8 @@ class PendingRecord:
             created_at=str(payload.get("created_at") or ""),
             updated_at=str(payload.get("updated_at") or ""),
             notes=list(payload.get("notes") or []),
+            consent_workspace_id=payload.get("consent_workspace_id"),
+            consent_revision=payload.get("consent_revision"),
         )
 
 

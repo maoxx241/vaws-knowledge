@@ -9,6 +9,9 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable, Mapping
+
+from vaws_knowledge.contribution.consent import Consent, ContributionPaused
 
 from vaws_knowledge.contribution.documents import (
     DIGEST_PREFIX,
@@ -44,6 +47,7 @@ def prepare_candidate(
     *,
     state_root: Path,
     public_root: Path,
+    consent: Consent | None = None,
 ) -> PendingRecord:
     """Write a public copy and a pending record. Does not mutate ``candidate_path``."""
 
@@ -69,6 +73,8 @@ def prepare_candidate(
             public_relpath="",
             status=STATUS_BLOCKED,
             candidate_relpath=str(candidate_path.name),
+            consent_workspace_id=consent.workspace_id if consent else None,
+            consent_revision=consent.revision if consent else None,
         )
         record.status = STATUS_BLOCKED
         record.last_error = copy.reason or "redaction blocked public copy"
@@ -85,6 +91,8 @@ def prepare_candidate(
         branch=branch_for_digest(document.digest),
         candidate_relpath=str(candidate_path.name),
         notes=["candidate left unchanged; public copy is redacted"],
+        consent_workspace_id=consent.workspace_id if consent else None,
+        consent_revision=consent.revision if consent else None,
     )
     record.title = document.title
     record.public_relpath = relpath
@@ -113,8 +121,17 @@ def submit_pending(
     git_repo: Path,
     github: GitHubTransport,
     config: SubmitConfig,
+    authorize: Callable[[], bool] | None = None,
+    git_env: Mapping[str, str] | None = None,
 ) -> PendingRecord:
     """Write the public copy onto a fork branch and open or reuse a PR."""
+
+    def require_consent() -> None:
+        if authorize is not None and not authorize():
+            raise ContributionPaused("contribution authorization changed; pending content remains local")
+
+    if authorize is not None and not authorize():
+        return record
 
     if record.status == STATUS_BLOCKED:
         return record
@@ -133,11 +150,13 @@ def submit_pending(
         return save_pending(state_root, record)
     repo_relpath = f"{config.knowledge_prefix.rstrip('/')}/{public_filename(record.content_digest, record.title)}"
     try:
+        require_consent()
         if run_git(git_repo, ["status", "--porcelain"]).stdout.strip():
             raise TransportError("contribution checkout has uncommitted changes")
         start_ref = config.default_branch
         if config.push_remote:
-            run_git(git_repo, ["fetch", "upstream", config.default_branch])
+            require_consent()
+            run_git(git_repo, ["fetch", "upstream", config.default_branch], env=git_env)
             start_ref = "FETCH_HEAD"
         head = commit_public_file(
             git_repo,
@@ -148,7 +167,9 @@ def submit_pending(
             start_ref=start_ref,
         )
         if config.push_remote:
-            run_git(git_repo, ["push", config.push_remote, f"HEAD:refs/heads/{record.branch}"])
+            require_consent()
+            run_git(git_repo, ["push", config.push_remote, f"HEAD:refs/heads/{record.branch}"], env=git_env)
+        require_consent()
         pull = create_pull(
             github,
             upstream=config.upstream,
@@ -157,7 +178,10 @@ def submit_pending(
             base=config.default_branch,
             title=record.title,
             body=_pr_body(record),
+            authorize=authorize,
         )
+    except ContributionPaused:
+        return record
     except (TransportError, GitHubError, OSError) as exc:
         if isinstance(exc, GitHubError):
             from vaws_knowledge.contribution.github import transport_message
