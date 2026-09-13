@@ -502,6 +502,10 @@ def explain(
     payload.update(found=True, role="reference")
     payload.setdefault("notes", []).append(REFERENCE_NOTE)
     payload.update(base)
+    if match.layer == "shared" and active:
+        prefix = str(active["root_uri"]).rstrip("/") + "/"
+        if match.uri.startswith(prefix):
+            payload["source_git_sha"] = active.get("source_git_sha")
     payload["found"] = True
     return payload
 
