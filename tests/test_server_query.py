@@ -219,7 +219,7 @@ class QueryMarkdown(unittest.TestCase):
             self.assertTrue(path.is_file())
             self.assertTrue(payload["degraded"])
             self.assertEqual(["lexical"], payload["results"][0]["retrieval"])
-            self.assertEqual(str(path), payload["results"][0]["path"])
+            self.assertEqual(path.resolve(), pathlib.Path(payload["results"][0]["path"]).resolve())
 
     def test_query_does_not_index_mounted_markdown(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

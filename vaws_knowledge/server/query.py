@@ -241,7 +241,9 @@ def query(
         document = catalog.get(hit.uri)
         # A lost ledger must not make deleted local files reappear as references.
         # Only the current imported pack has its authoritative source off disk.
-        if document is None and not (active_prefix and hit.uri.startswith(active_prefix)):
+        local_ref = any(hit.uri.startswith(uri_for(layer, "marker.md").removesuffix("marker.md"))
+                        for layer in searched_layers)
+        if document is None and not local_ref and not (active_prefix and hit.uri.startswith(active_prefix)):
             continue
         if hit.layer and hit.layer not in searched_layers:
             continue
@@ -249,8 +251,8 @@ def query(
             from vaws_knowledge.markdown import SHARED_BOOTSTRAP_URI
             if not hit.uri.startswith(SHARED_BOOTSTRAP_URI + "/") and not (active_prefix and hit.uri.startswith(active_prefix)):
                 continue
-        if selected.get("mode") == "only" and selected_topics:
-            if document is None or not selected_topics.intersection(
+        if selected.get("mode") == "only" and selected_topics and document is not None:
+            if not selected_topics.intersection(
                     str(topic).casefold() for topic in document.retrieval.get("topics", [])):
                 continue
         valid_hits.append(hit)
@@ -262,7 +264,17 @@ def query(
             break
         document = catalog.get(hit.uri)
         imported = bool(active_prefix and hit.uri.startswith(active_prefix))
-        if document is not None and (not imported or active.get("prepared_root")):
+        if document is None and not imported:
+            try:
+                # A new capture can reach vectors before the next catalog
+                # refresh. Resolve that exact URI, never scan the collection.
+                source_reads += 1
+                document = _read_mounted_uri(config, hit.uri, searched_layers)
+                source_errors.append(f"{hit.uri}: original is newer than the catalog snapshot")
+            except (OSError, UnicodeError, ValueError) as exc:
+                source_errors.append(f"{hit.uri}: {exc}")
+                continue
+        elif document is not None and (not imported or active.get("prepared_root")):
             try:
                 current = _read_current(config, document, shared_current=active)
                 source_reads += 1
@@ -301,6 +313,28 @@ def query(
         catalog_snapshot=snapshot.snapshot,
         source_reads=source_reads,
     )
+
+
+def _read_mounted_uri(config: ServiceConfig, ref: str, layers: Sequence[str]) -> Document:
+    for layer in layers:
+        prefix = uri_for(layer, "marker.md").removesuffix("marker.md")
+        if not ref.startswith(prefix):
+            continue
+        relative = ref[len(prefix):]
+        if any(part in {"", ".", ".."} for part in relative.replace("\\", "/").split("/")) or ":" in relative:
+            raise ValueError("reference is not a mounted relative Markdown path")
+        for root in config.mount(layer).roots:
+            base = Path(root).resolve()
+            proposed = base / relative
+            proposed.resolve().relative_to(base)
+            proposed.with_suffix(".meta.json").resolve().relative_to(base)
+            if proposed.is_file():
+                current = load_document(proposed, layer=layer, root=base, max_bytes=MAX_REFERENCE_BYTES,
+                                        max_metadata_bytes=MAX_METADATA_BYTES)
+                if current.uri != ref:
+                    raise ValueError("reference identity differs from its mounted original")
+                return current
+    raise ValueError("reference has no current mounted original")
 
 
 def _read_current(config: ServiceConfig, document: Document, *, shared_current: dict[str, Any] | None = None) -> Document:

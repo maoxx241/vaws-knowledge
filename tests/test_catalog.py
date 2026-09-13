@@ -72,6 +72,23 @@ def test_one_changed_note_only_reparses_one_and_removes_stale_alias(library):
     assert search_catalog(config, "图模式精度对不上").hits == []
 
 
+def test_new_vector_reference_reads_exact_original_before_catalog_refresh(library, monkeypatch):
+    config, notes = library
+    note(notes, "old.md", "# Existing\n\nOld catalog content")
+    refresh_catalog(config)
+    path = note(notes, "fresh.md", "# New graph observation\n\nnewvectorquartz")
+    uri = "viking://resources/project/fresh.md"
+    config.retrieval.upsert(uri, path.read_text(encoding="utf-8"), layer="project")
+    from vaws_knowledge.server import query as module
+    monkeypatch.setattr(module, "load_layer_documents", lambda *_a, **_k: pytest.fail("new hit scanned collection"))
+    result = query(config, text="newvectorquartz", limit=1)
+    assert result.results[0]["ref"] == uri and result.source_reads == 1
+    assert result.results[0]["retrieval"] == ["vector"]
+    assert result.incomplete  # the new original is not yet in lexical lookup
+    path.unlink()
+    assert query(config, text="newvectorquartz", limit=1).results == []
+
+
 def test_deleted_source_is_not_returned_before_refresh(library):
     config, notes = library
     path = note(notes, "a.md", "# Triton\n\nUniqueUBspill reproducer.")
