@@ -26,6 +26,48 @@ def _config(tmp: str):
     return config
 
 
+def test_catalog_locates_legacy_title_and_update_reads_current_original(tmp_path, monkeypatch):
+    from vaws_knowledge.catalog import refresh_catalog
+    from vaws_knowledge.server.layers import load_config
+
+    root = tmp_path / "candidate"
+    root.mkdir()
+    config = load_config({"backend": "memory", "state_root": str(tmp_path / "state"),
+                          "layers": {"candidate": str(root), "shared": {"enabled": False},
+                                     "project": {"enabled": False}}}, env={})
+    for number in range(80):
+        (root / f"unrelated-{number}.md").write_text(f"# Unrelated {number}\n\nEarlier condition.", encoding="utf-8")
+    legacy = root / "manual-legacy-name.md"
+    legacy.write_text("# Existing legacy title\n\nOriginal evidence.", encoding="utf-8")
+    assert refresh_catalog(config)["status"] == "ready"
+    meta_path(legacy).write_text(json.dumps({"conditions": {"soc": "A3"}}), encoding="utf-8")
+    original, reads = pathlib.Path.open, []
+
+    def counted(path, *args, **kwargs):
+        if path.name.startswith("unrelated-"):
+            reads.append(path)
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(pathlib.Path, "open", counted)
+    updated = capture(title="Existing legacy title", content="Updated observation, still uncertain.", config=config, index=False)
+    assert updated["path"] == str(legacy) and updated["document"]["conditions"] == {"soc": "A3"}
+    assert updated["title_lookup"]["method"] == "catalog" and reads == []
+    assert len(list(root.glob("*.md"))) == 81
+
+
+def test_cold_capture_keeps_legacy_title_update_without_setup(tmp_path):
+    from vaws_knowledge.server.layers import load_config
+
+    legacy = tmp_path / "legacy.md"
+    legacy.write_text("# Original title\n\nEarlier evidence.", encoding="utf-8")
+    config = load_config({"backend": "memory", "state_root": str(tmp_path / "state"),
+                          "layers": {"candidate": str(tmp_path)}}, env={})
+    updated = capture(title="Original title", content="Retained new evidence.", config=config, index=False)
+    assert updated["path"] == str(legacy)
+    assert updated["title_lookup"] == {"method": "bounded_scan", "incomplete": False}
+    assert not config.state_root.exists()
+
+
 class CaptureMarkdown(unittest.TestCase):
     def test_title_and_content_are_enough(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

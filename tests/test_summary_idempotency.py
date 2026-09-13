@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from unittest.mock import Mock, patch
@@ -152,3 +153,79 @@ def test_hook_output_stays_quiet_and_uses_no_backend_or_transcript(config, monke
             assert summary_hook.main(["--client", "codex"]) == 0
     assert capsys.readouterr().out == "{}\n{}\n"
     assert not config.state_root.exists()
+
+
+@pytest.mark.parametrize("count", [64, 512])
+@pytest.mark.parametrize("ready", [False, True])
+def test_new_summary_reads_bounded_old_notes_and_reuses_catalog(config, monkeypatch, count, ready):
+    from vaws_knowledge.catalog import refresh_catalog
+
+    root = config.mount("candidate").roots[0]
+    root.mkdir()
+    for number in range(count):
+        (root / f"unrelated-{number}.md").write_text(f"# Old case {number}\n\nObserved HCCL condition.", encoding="utf-8")
+    if ready:
+        assert refresh_catalog(config)["status"] == "ready"
+    original, reads = Path.open, []
+
+    def counted(path, *args, **kwargs):
+        if path.parent == root and path.name.startswith("unrelated-") and path.suffix == ".md":
+            reads.append(path)
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", counted)
+    result = summary_hook.capture_summary(payload(), config=config, client="codex")
+    assert result["status"] == "saved"
+    assert len(reads) <= (0 if ready else 32)
+    assert result["title_lookup"]["method"] == ("catalog" if ready else "bounded_scan")
+    assert result["title_lookup"]["incomplete"] is not ready
+    assert len(list(root.glob("*.md"))) == count + 1
+    assert ready or not config.state_root.exists()
+
+
+def test_catalog_observed_missing_summary_identity_preserves_manual_rename(config):
+    from vaws_knowledge.catalog import refresh_catalog
+
+    first = summary_hook.capture_summary(payload(), config=config, client="codex")
+    assert refresh_catalog(config)["status"] == "ready"
+    root = config.mount("candidate").roots[0]
+    note = next(root.glob("*.md"))
+    renamed = root / "manual-renamed.md"
+    meta_path(note).rename(meta_path(renamed))
+    note.rename(renamed)
+    renamed.write_text("# Updated human observation\n\nEarlier cause disproved.", encoding="utf-8")
+    before = snapshot(root)
+    with patch("vaws_knowledge.summary_hook.capture", side_effect=AssertionError("replayed observed identity")):
+        result = summary_hook.capture_summary(payload(), config=config, client="codex")
+    assert result["status"] == "preserved" and result["ref"] == first["ref"]
+    assert result["title_lookup"]["incomplete"]
+    assert snapshot(root) == before
+
+
+def test_cold_summary_stops_before_scanning_when_deadline_elapsed(config):
+    root = config.mount("candidate").roots[0]
+    root.mkdir()
+    with patch("vaws_knowledge.server.capture.time.perf_counter", side_effect=[0.0, 0.026]), \
+         patch("vaws_knowledge.server.capture.os.scandir", side_effect=AssertionError("scanned after deadline")):
+        result = summary_hook.capture_summary(payload(), config=config, client="codex")
+    assert result["status"] == "saved" and result["title_lookup"]["incomplete"]
+
+
+def test_cold_summary_oversize_legacy_note_has_one_bounded_read(config):
+    from vaws_knowledge.server import capture as module
+
+    root = config.mount("candidate").roots[0]
+    root.mkdir()
+    legacy = root / "large-legacy.md"
+    legacy.write_bytes(b"# Legacy evidence\n\n" + b"x" * 1048576)
+    original, reads = module.read_bounded, []
+
+    def counted(path, limit):
+        if path == legacy:
+            reads.append(limit)
+        return original(path, limit)
+
+    with patch.object(module, "read_bounded", counted):
+        result = summary_hook.capture_summary(payload(), config=config, client="codex")
+    assert result["status"] == "saved" and result["title_lookup"]["incomplete"]
+    assert reads == [524288] and legacy.stat().st_size > 1048576

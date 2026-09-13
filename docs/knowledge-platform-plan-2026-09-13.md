@@ -1,6 +1,6 @@
 # Knowledge capability implementation plan
 
-Status: planned implementation and acceptance record (2026-09-13); not a runtime contract
+Status: implemented capabilities with dated local acceptance (2026-09-13); final integration pending; not a runtime contract
 
 ## Objective and scope
 
@@ -117,6 +117,30 @@ No generic agent runtime is added to the ordinary query path.
 History, source provenance, public redaction, three-tool usability, and the
 inactive-provider contract are cross-cutting acceptance requirements.
 
+### Evidence status at the integration cutoff
+
+The [acceptance record](knowledge-platform-acceptance-2026-09-13.md) identifies
+actual runs and their private artifacts. These rows describe the working
+implementation and executed scope, not an assertion that final PRs, installed
+pins or remote CI have completed. Fixture checks do not become device or
+production-quality evidence.
+
+| ID | Executed evidence | Remaining delivery or applicability boundary |
+|---|---|---|
+| K01 | Eight actual format fixtures; real URL/Git/PR transport; zero-conversion repeats; interrupted writes and bounds tested; outputs queried/explained. Independent wheel CI passed Linux, Windows and macOS in PR 32. | Arbitrary production documents are not certified; final consumer pin is checked separately. |
+| K02 | Public vllm-ascend PR 16157 pinned at base `fb2820b9…` / head `debfa9bd…`; Grok Bot produced a source-linked case, verified and published it to the personal Git feed; local hourly synchronization executed. | PR was open/WIP; no NPU correctness result. The next scheduled Grok routine has not elapsed. |
+| K03 | Grok Bot produced a PR topic plus a navigation page over six existing NPU notes; both were adopted and retrieved. Actual source-link/affected-document CLI integration passed. | The agent recorded no supported association between unrelated peak-reference notes and this PR; no association is invented. |
+| K04 | Three pinned real Python/C++ files mapped with Torch registration evidence; repeat parsed/read zero source bytes. Whole Ascend tree inspected: 1,371 files, repeat reused all parsed results. | Whole-tree result remains partial for syntax/macro gaps; no runtime dispatch or NPU execution claim. |
+| K05 | Actual source edit → before/after map → changes artifact → linked-document worklist passed through public CLI; Windows file URI and UNC boundaries tested. | Static association is an inspection hint; dynamic execution and whether a claim is still true require judgment. |
+| K06 | Grok Bot supplied five retrieval questions for each of four adopted outputs; twenty source-bound aliases retained. Public regression ablation and stale-enrichment checks executed. | The authored regression questions are not held-out labels; no model is called by query. |
+| K07 | Public retrieval fixture preserves conditions, uncertainty, table headers and exact excerpt evidence; tests cover multi-span positions, code clipping and distant context. | Clipped or unavailable evidence stays explicit and can be explained; output budgets do not prove complete source understanding. |
+| K08 | Windows OCR actually read an image and a rendered scanned PDF; an independent native Agent viewed the chart and its hash-bound caption was accepted, retrieved and explained. | Native chart interpretation was Codex, not Grok vision. Tesseract/platform absence is an explicit skip; no new model download or local multimodal service. |
+| K09 | Thirteen VA-domain regression queries, 10k/100k real-file capacity runs and fourteen warm native MCP queries executed; final 100k forced unchanged maintenance completed in 9.805 s, ready; maintenance CLI bounds/errors tested in real subprocesses. | Initial 100k verified maintenance took 543.71 s; native 100k embeddings and a physical 16 GiB host were not benchmarked. Separate runs are not a controlled A/B speedup claim. |
+| K10 | Grok Bot produced a dated source-linked maintenance digest from the actual bounded PR/corpus run; it was adopted and queried with the other outputs. | This establishes one real digest, not recurring execution over multiple elapsed periods. |
+| K11 | Actual Grok Bot independent research produced four Markdown outputs and twenty questions; validated application/history, public export, live Git feed import and natural local hourly execution completed. Both saved Grok routines use the verified fixed exporter. | Future scheduled Grok cycles are not claimed as elapsed; final installed MCP checks remain separate. |
+| K12 | Topic selection and cross-topic fixture queries executed; native shared-release chain retained aliases/topics across two source versions and excluded stale metadata after switching. | Release fixtures establish propagation and isolation, not production-topic completeness or authority. |
+| K13 | Separate consumer engineering archive covers 26 tool families and all 18 current business skills; 90 historical suite artifacts had their hashes/XML checked; bounded archive checker and its negative tests passed. | Exact final consumer pins/CI need their affected checks. The old 90-suite summary has no source/runtime snapshot and is not relabelled as final-version execution. |
+
 ## Delivery batches and ownership
 
 The numbered batches are delivery boundaries, not optional priority tiers.
@@ -179,5 +203,9 @@ claims require actual execution. PRs may be stacked while dependencies develop.
 - [x] Coordinated ownership with the two parallel VAWS tasks.
 - [x] Identified existing whole-corpus query cost and shared metadata loss.
 - [x] Reconcile detailed user annotations and VA development domain scope.
-- [ ] Complete batches 1-5 and all K01-K13 acceptance evidence.
+- [x] Implement and execute local acceptance for independent import/media, catalog/context, code/relations and curation/reference commands.
+- [x] Verify real Grok Bot output adoption, native three-tool MCP, 10k/100k capacity, and separate VAWS engineering coverage.
+- [x] Execute final 100k maintenance path with 20 query samples and before/after input hash verification; retain actual initial and unchanged costs.
+- [x] Complete cloud export/local feed return and actual local scheduled execution; retain the future Grok schedule boundary.
+- [ ] Complete final package/consumer integration, independent-platform CI and remaining applicability boundaries in the acceptance record.
 - [ ] Audit actual merged/installed state against this full scope.

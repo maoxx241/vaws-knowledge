@@ -16,6 +16,7 @@ From the package checkout:
 uv run --no-project python tests/performance/benchmark_legacy_lexical.py --output .vaws-local/performance/legacy.json
 uv run --no-project python tests/performance/evaluate_reference_fixture.py --output .vaws-local/performance/retrieval.json
 uv run --no-project python tests/performance/benchmark_reference_catalog.py --sizes 10000 100000 --queries 40 --output .vaws-local/performance/catalog.json
+uv run --no-project python tests/performance/benchmark_capture_growth.py --output .vaws-local/performance/capture-growth.json
 ```
 
 The capacity runner creates real temporary Markdown files from all 65 checked-in
@@ -34,45 +35,72 @@ These are measured process-memory requirements on the development host, not a
 claim of testing a physical 16 GiB machine. Other implementation work was active
 during measurements; these are not isolated laboratory timings.
 
-| Measured phase | 10,000 notes, final repeat | 100,000 notes, extension |
+| Measured phase | 10,000 notes, earlier final repeat | 100,000 notes, final maintenance path |
 |---|---:|---:|
 | Authored UTF-8 text | 39.38 MiB | 393.84 MiB |
-| First incomplete public query | 137.61 ms | 150.67 ms |
-| First offline build | 89.15 s | 776.92 s |
-| Unchanged refresh | 0.946 s | 10.586 s |
-| One-file changed refresh | 1.144 s | 9.158 s |
-| Warm catalog p50 / p95 | 35.09 / 51.05 ms | 171.06 / 227.40 ms |
-| Public query p50 / p95, vectors disabled | 56.52 / 73.59 ms | 180.88 / 249.65 ms |
-| Maximum public query | 88.76 ms | 266.08 ms |
+| First incomplete public query | 137.61 ms | 132.41 ms |
+| First offline build | 89.15 s | 856.47 s |
+| Unchanged refresh | 0.946 s | 9.879 s |
+| One-file changed refresh | 1.144 s | 8.135 s |
+| Warm catalog p50 / p95 | 35.09 / 51.05 ms | 190.98 / 234.65 ms |
+| Public query p50 / p95, vectors disabled | 56.52 / 73.59 ms | 201.53 / 269.32 ms |
+| Maximum public query | 88.76 ms | 281.02 ms |
 | Maximum successful original reads per query | 8 | 8 |
 | Maximum response bytes | 13,120 | 13,120 |
 | SQLite on disk | 181.97 MiB | 1.77 GiB |
-| Peak Python working set before vector fixture | 78.62 MiB | 276.49 MiB |
-| Peak working set including memory vector fixture | 195.59 MiB | 1.57 GiB |
+| Peak Python working set before vector fixture | 78.62 MiB | 271.98 MiB |
+| First `maintain(verify=True, force=True)`, memory vector fixture | 40.52 s | 543.71 s |
+| Unchanged `maintain(force=True)`, memory vector fixture | 1.459 s | 9.805 s |
+| Both maintenance calls returned ready | yes | yes |
+| Peak working set including memory vector fixture | 195.59 MiB | 1.58 GiB |
 
-Each warm series has 40 samples over identifier and NPU-domain queries. The
+The 10k warm series has 40 samples; the final 100k series has 20, over the same
+identifier and NPU-domain query cycle. The
 100k data contains repeated vocabulary, which makes broad queries match many
 documents. Both unchanged refreshes read zero body bytes and parse zero notes;
 the changed refreshes parse exactly one note. Windows newline conversion means
 on-disk source bytes differ slightly from authored UTF-8 text.
 
 The 10k p95 target of 100 ms passes for the catalog and the complete public
-lexical route. The 100k extension is measured, not hidden behind a smaller
-corpus: broad retrieval costs about 250 ms, and metadata scanning takes about
-10.6 seconds. First builds and integrity audits belong to maintenance. The
+lexical route. The final 100k run is measured, not hidden behind a smaller
+corpus: public lexical p95 is about 269 ms, and metadata scanning takes about
+9.9 seconds. First builds and integrity audits belong to maintenance. The
 catalog alone should be budgeted at approximately 0.5 GiB resident memory and
 2 GiB disk for this 100k workload; repair temporarily retains an additional
 complete catalog generation. Native vector storage and processes need their
 own measured budget.
 
-Actual unchanged `maintain(force=True)` on the final 10k repeat took 1.459 s.
-The complete 100k run began before the integration owner stopped force-wakeup
-from running the health audit. That run measured 239.31 s initial maintenance
-and 113.60 s unchanged forced maintenance with the old audit behavior. Those
-100k maintenance times are retained as evidence of the identified cost, not
-reported as final unchanged behavior. The subsequent 10k repeat verifies the
-updated path, including its real directory scan and receipt reuse. No native
-100k embedding throughput or final 100k forced-maintenance timing is claimed.
+The final 100k run executed the implementation at
+`95185f3cf71984a39c22f18d1caf14d56f1edc18`, including the force-wakeup/health
+separation and vector delta fixes. It completed with exit 0. The seven recorded
+core/runner file hashes and all 65 corpus hashes matched before and after the
+run; later Git integration history did not alter these measured inputs.
+Actual unchanged `maintain(force=True)` took **9.805 s** and returned ready.
+The initial `verify=True, force=True` call took **543.71 s**, also ready. This
+explicit initial integrity/reconciliation work remains expensive and runs
+outside ordinary queries.
+
+The earlier 100k run used the old forced health-audit behavior: initial
+maintenance 239.31 s, unchanged forced maintenance 113.60 s, first catalog
+build 776.92 s. Its artifact is retained; those are not final-path timings.
+The new first build (856.47 s) and initial maintenance (543.71 s) were slower,
+while unchanged maintenance was substantially shorter. These are separate
+runs under concurrent development activity, not a matched repeated A/B
+experiment or a general speedup claim. No native 100k embedding throughput or
+physical 16 GiB host acceptance is implied.
+
+Actual final command and retained local evidence:
+
+```powershell
+python tests/performance/benchmark_reference_catalog.py --sizes 100000 --queries 20 --output .vaws-local/performance/catalog-final-100k.json
+```
+
+The same directory holds `catalog-final-100k.log` and
+`catalog-final-100k-provenance.json` with the source revision, runtime, input
+hashes and exit status. The result SHA256 is
+`c717ec3d637984c209dc0c3f7226d21ea9208d82f279eee41dac471c0dc73428`.
+Earlier `catalog-scale-optimized.json` and `catalog-scale-final-10k.json`
+remain historical source measurements.
 
 ## Scoring baseline and quality regression
 
@@ -143,6 +171,29 @@ table headers, code clipping, distant conditions and exact multi-span positions.
 The ordinary MCP surface remains `knowledge_query`, `knowledge_explain` and
 `knowledge_capture`. Normal query has a 20-result ceiling and defaults to 4,800
 excerpt characters. Without a catalog, fallback has a 128-note / 1 MiB / 100 ms
-scan budget and reports incomplete; it never builds an index. A read of one
+scan budget and reports incomplete; it never builds an index. It also caps
+directory entries at 1,024 across all mounts, including non-Markdown assets
+and empty directories. The 1 MiB limit accounts for stat-observed successful
+Markdown bodies; metadata has its separate per-file bound. Deadlines are
+cooperative between filesystem operations. A read of one
 reference is bounded at 4 MiB and its metadata at 256 KiB, including files that
 grow after a stat call. Oversized/unavailable sources remain unknown and intact.
+
+## Capture growth acceptance
+
+`capture-growth-final.json` exercised 64 and 1,024 real candidate files with
+MemoryBackend, Python 3.13.12 on Windows and instrumented file opens. Six
+implementation/runner hashes matched before and after. Cold summary capture
+read 8/18 old bodies and took 45.968/35.637 ms including saving. Cold title
+lookup stops at 32 notes, 256 directory entries, 512 KiB or a cooperative
+25 ms lookup deadline. That deadline is not a hard whole-capture limit.
+Ten warm captures at each size read zero unrelated Markdown bodies, with
+p50 17.946/20.582 ms and maxima 24.761/23.989 ms. Ten one-result queries at
+each size read ten original bodies total, with p50 6.383/8.003 ms.
+
+The existing catalog supplies an exact-title index created by maintenance.
+Capture never scans the full corpus or builds that index; a missing/old catalog
+uses only the bounded compatibility lookup. Unobserved manual renames may leave
+title matching incomplete and are reported without overwriting arbitrary old
+notes. These smaller growth runs complement, rather than replace, the separately
+pinned 100k and native embedding measurements.

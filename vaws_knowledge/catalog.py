@@ -88,6 +88,7 @@ def _schema(db: sqlite3.Connection) -> None:
             contexts TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS documents_path ON documents(path);
         CREATE INDEX IF NOT EXISTS documents_layer ON documents(layer);
+        CREATE INDEX IF NOT EXISTS documents_title ON documents(layer,root,title,path);
         CREATE VIRTUAL TABLE IF NOT EXISTS terms USING fts5(title,body,aliases);
         CREATE TABLE IF NOT EXISTS topics(document_id INTEGER NOT NULL, topic TEXT NOT NULL,
             PRIMARY KEY(document_id,topic));
@@ -475,6 +476,38 @@ def search_catalog(config: Any, text: str, *, layers: Sequence[str] | None = Non
         result.incomplete = True
         result.notes.append(f"Reference catalog is unavailable: {type(exc).__name__}: {exc}")
     return result
+
+
+def catalog_title_matches(config: Any, title: str, *, root: Path, layer: str = "candidate") -> dict[str, Any]:
+    """Read a bounded exact-title observation, without opening document bodies.
+
+    Maintenance creates the title index. An older or unavailable catalog falls
+    back to the caller's bounded compatibility lookup, never a SQLite full scan.
+    The snapshot cannot establish the identity of an unobserved manual rename.
+    """
+    path = catalog_path(config)
+    unavailable = {"available": False, "matches": [], "incomplete": True}
+    if path is None or not path.is_file():
+        return unavailable
+    try:
+        with closing(_connect(path)) as db:
+            db.execute("BEGIN")
+            metadata = {row["key"]: json.loads(row["value"]) for row in db.execute(
+                "SELECT key,value FROM meta WHERE key IN ('schema','snapshot','roots')")}
+            if metadata.get("schema") != SCHEMA:
+                return unavailable
+            # A large source-error list need not be decoded by a capture.
+            gaps = db.execute("SELECT value!='[]' FROM meta WHERE key='errors'").fetchone()
+            resolved_root = str(root.resolve())
+            rows = db.execute("""SELECT path,uri FROM documents INDEXED BY documents_title
+                                 WHERE layer=? AND root=? AND title=? ORDER BY path LIMIT 9""",
+                              (layer, resolved_root, title)).fetchall()
+            return {"available": True, "matches": [dict(row) for row in rows[:8]],
+                    "incomplete": bool(len(rows) > 8 or (gaps and gaps[0])
+                                       or [layer, resolved_root] not in metadata.get("roots", [])),
+                    "snapshot": metadata.get("snapshot")}
+    except (sqlite3.Error, OSError, ValueError, TypeError):
+        return unavailable
 
 
 def get_catalog_documents(config: Any, refs: Sequence[str], *, layers: Sequence[str] | None = None) -> dict[str, Document]:

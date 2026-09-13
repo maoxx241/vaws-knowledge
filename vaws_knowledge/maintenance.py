@@ -41,6 +41,10 @@ def _ledger_stamp(root: Path) -> list[int] | None:
         return None
 
 
+def _shared_identity(current: dict[str, Any] | None) -> dict[str, Any] | None:
+    return {key: current.get(key) for key in ("source_git_sha", "root_uri", "prepared_root", "prepared_manifest_sha256")} if current else None
+
+
 def refresh_references(config: ServiceConfig, previous: dict[str, Any] | None = None, *, verify: bool = False) -> dict[str, Any]:
     """Join one active prepared release with local notes outside the query path."""
     from vaws_knowledge.catalog import catalog_path, refresh_catalog
@@ -51,7 +55,7 @@ def refresh_references(config: ServiceConfig, previous: dict[str, Any] | None = 
     unknown = current is None and bool(before.get("shared_identity") or (
         config.state_root and any((Path(config.state_root) / name / "current.json").exists()
                                   for name in ("distribution", "shared"))))
-    identity = {key: current.get(key) for key in ("source_git_sha", "root_uri", "prepared_root", "prepared_manifest_sha256")} if current else None
+    identity = _shared_identity(current)
     path = catalog_path(config)
     extra = None
     if not unknown and (verify or path is None or not path.exists() or before.get("shared_identity") != identity):
@@ -158,7 +162,12 @@ def maintain(config: ServiceConfig, *, verify: bool = False, force: bool = False
                 result["shared"] = shared
                 sync = shared.get("sync") or {}
                 result["ready"] = sync.get("status", shared.get("status")) in {"unchanged", "switched", "disabled"}
-                if sync.get("status") == "switched":
+                from vaws_knowledge.local.shared import current_shared
+
+                # A legacy upgrade or repair can prepare a new reference source
+                # while retaining the same Git version and returning unchanged.
+                reference_changed = _shared_identity(current_shared(config.state_root)) != result["catalog"].get("shared_identity")
+                if sync.get("status") == "switched" or reference_changed:
                     result["catalog"] = refresh_references(config, result["catalog"])
                     refreshed = result["catalog"]
                     if refreshed.get("status") == "ready" and refreshed.get("previous_snapshot") == result.get("local_snapshot"):

@@ -5,6 +5,7 @@ import pytest
 
 from vaws_knowledge.catalog import refresh_catalog
 from vaws_knowledge.evaluation import evaluate
+from vaws_knowledge.local.backend import MemoryBackend
 from vaws_knowledge.markdown import meta_path, normalized_sha256
 from vaws_knowledge.server.layers import load_config
 
@@ -20,6 +21,11 @@ def test_domain_regression_fixture_uses_real_query_path(tmp_path):
                                                            "aliases": document.get("aliases", []), "topics": document.get("topics", [])}}), encoding="utf-8")
     config = load_config({"backend": "memory", "state_root": str(tmp_path / "state"),
                           "layers": {"shared": {"enabled": False}, "candidate": {"enabled": False}, "project": str(notes)}}, env={})
+    # Exercise both candidate routes; an empty memory backend only tests lexical retrieval.
+    # This deterministic in-process route is not native embedding quality evidence.
+    config.retrieval = MemoryBackend(config)
+    for document in fixture["documents"]:
+        config.retrieval.upsert("viking://resources/project/" + document["path"], document["raw"], layer="project")
     assert refresh_catalog(config)["status"] == "ready"
     result = evaluate(config, fixture["cases"])
     assert result["summary"]["scored_queries"] == 12

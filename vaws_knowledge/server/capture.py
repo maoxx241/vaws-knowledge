@@ -8,17 +8,26 @@ down index still leaves the Markdown file on disk.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+import json
+import os
 from pathlib import Path
+import time
 from typing import Any, Mapping, Sequence
 
 from vaws_knowledge.local.backend import backend_for_config
 from vaws_knowledge.local.reconcile import remember_document
 from vaws_knowledge.markdown import (
     delete_document,
+    Document,
+    document_from_text,
     document_slug,
-    find_by_title,
     iter_markdown_files,
     load_document,
+    MAX_METADATA_BYTES,
+    MAX_REFERENCE_BYTES,
+    meta_path,
+    read_bounded,
     relative_posix,
     save_document,
     uri_for,
@@ -55,8 +64,127 @@ def candidate_root(config: ServiceConfig, *, create: bool = True) -> Path:
     return root
 
 
-def _proposed_identity(root: Path, heading: str) -> tuple[str, str, Path, bool]:
-    existing = find_by_title(root, heading, layer="candidate")
+@dataclass
+class CaptureLookup:
+    document: Document | None = None
+    method: str = "bounded_scan"
+    incomplete: bool = False
+    missing_ref: str | None = None
+    snapshot: str | None = None
+
+    def describe(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"method": self.method, "incomplete": self.incomplete}
+        if self.snapshot:
+            result["snapshot"] = self.snapshot
+        if self.incomplete:
+            result["detail"] = "Title lookup was incomplete; an unobserved renamed note may exist. Existing notes are preserved."
+        return result
+
+
+def _read_note(path: Path, root: Path, *, byte_limit: int = MAX_REFERENCE_BYTES + MAX_METADATA_BYTES) -> tuple[Document, int]:
+    path.resolve().relative_to(root.resolve())
+    sidecar = meta_path(path)
+    sidecar.resolve().relative_to(root.resolve())
+    raw = read_bounded(path, min(MAX_REFERENCE_BYTES, byte_limit))
+    metadata = read_bounded(sidecar, min(MAX_METADATA_BYTES, byte_limit - len(raw))) if sidecar.is_file() else b""
+    value = json.loads(metadata.decode("utf-8")) if metadata else {}
+    if not isinstance(value, dict):
+        raise ValueError("note metadata must be an object")
+    return document_from_text(raw.decode("utf-8"), path=path, layer="candidate", root=root,
+                              metadata=value), len(raw) + len(metadata)
+
+
+def lookup_capture(root: Path, heading: str, *, config: ServiceConfig, preserve_identity: bool = False) -> CaptureLookup:
+    """Resolve one title using exact paths and the maintained catalog.
+
+    Cold compatibility work is capped at 32 notes, 256 directory entries,
+    512 KiB and 25 ms between filesystem operations. It never builds an index.
+    A catalog snapshot describes observed titles, not arbitrary later edits.
+    """
+    started = time.perf_counter()
+    target = root / f"{document_slug(heading)}.md"
+    if target.exists():
+        try:
+            document, _ = _read_note(target, root)
+        except (OSError, UnicodeError, ValueError):
+            return CaptureLookup(method="unreadable_target", incomplete=True,
+                                 missing_ref=uri_for("candidate", target.name))
+        if preserve_identity or document.title.strip() == heading:
+            return CaptureLookup(document=document, method="exact_path")
+
+    from vaws_knowledge.catalog import catalog_title_matches
+
+    observed = catalog_title_matches(config, heading, root=root)
+    result = CaptureLookup(method="catalog" if observed["available"] else "bounded_scan",
+                           incomplete=bool(observed["incomplete"]), snapshot=observed.get("snapshot"))
+    if observed["available"]:
+        for match in observed["matches"]:
+            path = Path(match["path"])
+            try:
+                document, _ = _read_note(path, root)
+            except FileNotFoundError:
+                result.missing_ref = result.missing_ref or match["uri"]
+                result.incomplete = True
+                continue
+            except (OSError, UnicodeError, ValueError):
+                result.missing_ref = result.missing_ref or match["uri"]
+                result.incomplete = True
+                continue
+            if preserve_identity or document.title.strip() == heading:
+                result.document = document
+                return result
+            result.incomplete = True
+        return result
+
+    result.incomplete = False
+    pending, entries_seen, notes_seen, read_bytes = [root], 0, 0, 0
+
+    def exhausted() -> bool:
+        stopped = (entries_seen >= 256 or notes_seen >= 32 or read_bytes >= 524288
+                   or (time.perf_counter() - started) * 1000 >= 25)
+        result.incomplete = result.incomplete or stopped
+        return stopped
+
+    while pending:
+        if exhausted():
+            break
+        directory = pending.pop()
+        try:
+            with os.scandir(directory) as entries:
+                while not exhausted():
+                    try:
+                        entry = next(entries)
+                    except StopIteration:
+                        break
+                    entries_seen += 1
+                    if entry.is_dir(follow_symlinks=False):
+                        if not entry.name.startswith("."):
+                            pending.append(Path(entry.path))
+                    elif entry.name.endswith(".md"):
+                        notes_seen += 1
+                        try:
+                            document, size = _read_note(Path(entry.path), root, byte_limit=524288 - read_bytes)
+                            read_bytes += size
+                        except (OSError, UnicodeError, ValueError):
+                            result.incomplete = True
+                            # A failed bounded read may have consumed the
+                            # remaining byte budget. Never restart it per file.
+                            return result
+                        if document.title.strip() == heading:
+                            result.document = document
+                            return result
+        except FileNotFoundError:
+            if directory != root:
+                result.incomplete = True
+        except OSError:
+            result.incomplete = True
+    return result
+
+
+def _proposed_identity(root: Path, heading: str, lookup: CaptureLookup) -> tuple[str, str, Path, bool]:
+    if lookup.method == "unreadable_target":
+        raise CaptureRejected(["existing deterministic target cannot be read safely; it was preserved"])
+    existing = lookup.document
     if existing is not None:
         return existing.slug, existing.uri, existing.path, True
     ident = document_slug(heading)
@@ -75,6 +203,7 @@ def capture(
     evidence: Any = None,
     dry_run: bool = False,
     index: bool = True,
+    _lookup: CaptureLookup | None = None,
 ) -> dict[str, Any]:
     """Save one candidate document. Required inputs are title and content."""
 
@@ -99,7 +228,8 @@ def capture(
 
     config = config or load_config()
     root = candidate_root(config, create=not dry_run)
-    ident, uri, path, updating = _proposed_identity(root, heading)
+    lookup = _lookup if _lookup is not None else lookup_capture(root, heading, config=config)
+    ident, uri, path, updating = _proposed_identity(root, heading, lookup)
     if dry_run:
         return {
             "ok": True,
@@ -111,6 +241,7 @@ def capture(
             "layer": "candidate",
             "index": "skipped",
             "would_update": updating,
+            "title_lookup": lookup.describe(),
         }
 
     document = save_document(
@@ -153,6 +284,7 @@ def capture(
         "layer": "candidate",
         "index": "ready" if indexed else "pending",
         "document": document.to_dict(),
+        "title_lookup": lookup.describe(),
     }
     if document.source:
         payload["source"] = dict(document.source)

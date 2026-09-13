@@ -190,6 +190,87 @@ def test_cold_fallback_is_bounded_and_does_not_create_catalog(library):
     assert any("budget" in message for message in result.notes)
 
 
+def _observed_scandir(original, on_entry):
+    class Observed:
+        def __init__(self, path):
+            self.entries = original(path)
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            entry = next(self.entries)
+            on_entry(entry)
+            return entry
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            self.entries.close()
+
+    return Observed
+
+
+def test_cold_fallback_bounds_non_markdown_directory_entries(library, monkeypatch):
+    from vaws_knowledge.server import query as module
+
+    config, notes = library
+    for number in range(256):
+        (notes / f"asset-{number}.txt").write_text("asset", encoding="utf-8")
+    original = module.os.scandir
+    visited = []
+
+    monkeypatch.setattr(module.os, "scandir", _observed_scandir(original, lambda entry: visited.append(entry.name)))
+    config.catalog_options = {"fallback_documents": 1, "fallback_ms": 500}
+    result = query(config, text="ACLGraph")
+    assert len(visited) <= 128
+    assert result.results == [] and result.incomplete
+    assert any("directory-entry" in message for message in result.notes)
+    assert not config.state_root.exists()
+
+
+def test_cold_fallback_checks_deadline_while_visiting_empty_directories(library, monkeypatch):
+    from vaws_knowledge.server import query as module
+
+    config, notes = library
+    for number in range(16):
+        (notes / f"empty-{number}").mkdir()
+    original = module.os.scandir
+    clock, visited = [0.0], []
+
+    def observed(entry):
+        visited.append(entry.name)
+        clock[0] += 0.002
+
+    monkeypatch.setattr(module.os, "scandir", _observed_scandir(original, observed))
+    monkeypatch.setattr(module.time, "perf_counter", lambda: clock[0])
+    errors = []
+    result = module.load_layer_documents(config, ["project"], errors=errors,
+                                         max_documents=128, max_bytes=1048576, time_budget_ms=1)
+    assert visited and len(visited) <= 1
+    assert result == [] and any("time budget" in message for message in errors)
+    assert not config.state_root.exists()
+
+
+def test_cold_fallback_entry_budget_is_shared_across_mount_roots(library, monkeypatch):
+    from dataclasses import replace
+    from vaws_knowledge.server import query as module
+
+    config, notes = library
+    other = notes.parent / "other"
+    other.mkdir()
+    for root in (notes, other):
+        for number in range(80):
+            (root / f"asset-{number}.txt").write_text("asset", encoding="utf-8")
+    config.mounts["project"] = replace(config.mount("project"), roots=(notes, other))
+    visited, errors = [], []
+    monkeypatch.setattr(module.os, "scandir", _observed_scandir(module.os.scandir, lambda entry: visited.append(Path(entry.path))))
+    result = module.load_layer_documents(config, ["project"], errors=errors, max_documents=1)
+    assert len(visited) == 128 and {path.parent for path in visited} == {notes, other}
+    assert result == [] and any("directory-entry" in message for message in errors)
+
+
 def test_growing_oversize_hit_is_unknown_without_unbounded_read(library):
     config, notes = library
     path = note(notes, "large.md", "# Graph\n\nunique_growth_case")
@@ -209,6 +290,36 @@ def test_config_keeps_backend_holder_separate_from_catalog_options(tmp_path):
     assert config.retrieval is None and config.catalog_options["fallback_documents"] == 7
     assert config.selection["topics"] == ["triton"]
     assert config.sources == [{"kind": "git"}] and config.curation["provider"] == "native-agent"
+
+
+def test_older_catalog_title_index_is_added_only_by_maintenance(library):
+    import sqlite3
+    from vaws_knowledge.catalog import catalog_title_matches
+
+    config, notes = library
+    note(notes, "legacy.md", "# Legacy title\n\nACLGraph observation.")
+    refresh_catalog(config)
+    assert catalog_title_matches(config, "Legacy title", layer="project", root=notes)["matches"]
+    with sqlite3.connect(catalog_path(config)) as db:
+        db.execute("DROP INDEX documents_title")
+    observed = catalog_title_matches(config, "Legacy title", layer="project", root=notes)
+    assert not observed["available"] and observed["incomplete"]
+    with sqlite3.connect(catalog_path(config)) as db:
+        assert db.execute("SELECT name FROM sqlite_master WHERE name='documents_title'").fetchone() is None
+    assert query(config, text="ACLGraph").results  # retrieval does not need that title index
+    assert refresh_catalog(config)["parsed"] == 0
+    assert catalog_title_matches(config, "Legacy title", layer="project", root=notes)["matches"]
+
+
+def test_catalog_title_lookup_retains_observed_source_gaps(library):
+    from vaws_knowledge.catalog import catalog_title_matches
+
+    config, notes = library
+    path = note(notes, "bad.md", "# Unreadable metadata\n\nEarlier evidence.")
+    meta_path(path).write_text("[]", encoding="utf-8")
+    assert refresh_catalog(config)["status"] == "partial"
+    observed = catalog_title_matches(config, "A new title", layer="project", root=notes)
+    assert observed["available"] and observed["incomplete"] and observed["matches"] == []
 
 
 def test_catalog_explain_uses_current_original(library, monkeypatch):
