@@ -17,6 +17,8 @@ class Allowlist(_shared.Allowlist):
         try:
             super().add(term)
         except _shared.ToolError as exc:
+            from vaws_knowledge.observability import cli_outcome
+            cli_outcome("argument_validation", 2, caller=True, exception=exc)
             raise ToolError(str(exc)) from None
 
     @classmethod
@@ -124,6 +126,8 @@ def main(argv: list[str]) -> int:
     if errors:
         return EXIT_FINDINGS
     if findings and args.check:
+        from vaws_knowledge.observability import cli_outcome
+        cli_outcome("redaction.findings", EXIT_FINDINGS, count=len(findings))
         return EXIT_FINDINGS
     return EXIT_OK
 

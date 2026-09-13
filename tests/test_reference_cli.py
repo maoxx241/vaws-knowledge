@@ -32,6 +32,7 @@ def run_cli(inputs, *args):
     env["VAWS_KNOWLEDGE_STATE"] = str(inputs["state"])
     env["VAWS_KNOWLEDGE_LAYERS"] = "project"
     env["VAWS_KNOWLEDGE_PROJECT_ROOTS"] = str(inputs["notes"])
+    env["VAWS_DIAGNOSTICS_ROOT"] = str(inputs["root"] / "diagnostics")
     env["PYTHONPATH"] = str(ROOT)
     return subprocess.run([sys.executable, "-X", "utf8", "-m", "vaws_knowledge", *map(str, args)],
                           cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8", timeout=20)
