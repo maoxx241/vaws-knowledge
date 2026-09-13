@@ -26,9 +26,10 @@ from vaws_knowledge.distribution.sync import SwitchLock
 from vaws_knowledge.markdown import MAX_METADATA_BYTES, MAX_REFERENCE_BYTES, meta_path, normalized_sha256, read_bounded, retrieval_metadata
 
 SCHEMA = "vaws-curation-export/1"
-MAX_FILES = 64
-MAX_BYTES = 8 * 1024 * 1024
-MAX_MANIFEST_BYTES = 256 * 1024
+MAX_FILES = 1024
+MAX_BYTES = 32 * 1024 * 1024
+MAX_MANIFEST_BYTES = 2 * 1024 * 1024
+MAX_ENTRIES = MAX_FILES * 8
 _SHA = re.compile(r"[0-9a-f]{64}")
 _ROW_KEYS = {"path", "size", "sha256", "source_sha256", "input_sha256", "metadata_size", "metadata_sha256"}
 
@@ -58,7 +59,7 @@ def _inside(root: Path, relative: str) -> Path:
     return path
 
 
-def _walk(root: Path, *, deadline: float, maximum: int = 2048):
+def _walk(root: Path, *, deadline: float, maximum: int = MAX_ENTRIES):
     pending, visited = [root], 0
     while pending:
         with os.scandir(pending.pop()) as entries:
@@ -94,7 +95,7 @@ def _selected(source: Path, includes: Sequence[str], deadline: float) -> list[Pa
                 raise ExportError("selected source paths overlap or collide across platforms")
             paths[key] = _inside(source, name)
             if len(paths) > MAX_FILES:
-                raise ExportError("export exceeds the 64-document budget")
+                raise ExportError(f"export exceeds the {MAX_FILES}-document budget")
     return sorted(paths.values(), key=lambda path: path.relative_to(source).as_posix())
 
 
@@ -231,7 +232,7 @@ def export_notes(source_root: Path, output_root: Path, includes: Sequence[str] =
     if (any(type(value) is not int or not 1 <= value <= ceiling for value, ceiling in
             ((max_files, MAX_FILES), (max_bytes, MAX_BYTES), (max_file_bytes, MAX_REFERENCE_BYTES)))
             or isinstance(max_seconds, bool) or not isinstance(max_seconds, (int, float)) or not 0 < max_seconds <= 300):
-        raise ExportError("export limits must remain within 64 files, 8 MiB total, 4 MiB per note and 300 seconds")
+        raise ExportError("export limits must remain within 1024 files, 32 MiB total, 4 MiB per note and 300 seconds")
     if isinstance(includes, str):
         includes = [includes]
     if not isinstance(includes, (list, tuple)) or any(not isinstance(name, str) for name in includes):
