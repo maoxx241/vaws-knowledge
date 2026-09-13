@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 
 SKILL_NAME = "curate-knowledge"
-RESOURCE_FILES = ("SKILL.md", "agents/openai.yaml")
+RESOURCE_FILES = ("SKILL.md", "agents/openai.yaml", "references/independent-maintenance.md")
 
 
 def skill_files() -> dict[str, bytes]:

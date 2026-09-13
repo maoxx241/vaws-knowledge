@@ -37,6 +37,12 @@ def main(argv: list[str] | None = None) -> int:
             "server",
             "prepare",
             "health",
+            "catalog",
+            "evaluate",
+            "code-map",
+            "relations",
+            "curation",
+            "curation-export",
             "redact",
             "query",
             "capture",
@@ -73,6 +79,18 @@ def main(argv: list[str] | None = None) -> int:
         from vaws_knowledge.maintenance import main as prepare_main
 
         return prepare_main(rest)
+    if command == "curation":
+        from vaws_knowledge.curation import main as curation_main
+
+        return curation_main(rest)
+    if command == "curation-export":
+        from vaws_knowledge.curation_export import main as export_main
+
+        return export_main(rest)
+    if command in {"catalog", "evaluate", "code-map", "relations"}:
+        from vaws_knowledge.reference_cli import main as reference_main
+
+        return reference_main([command, *rest])
     if command == "health":
         import json
         from vaws_knowledge.health import inspect_knowledge

@@ -1,6 +1,6 @@
 ---
 name: curate-knowledge
-description: Organize Markdown notes when explicitly asked to clean up knowledge, combine duplicate experience, or prepare a public contribution. Keep conditions and uncertainty; ordinary lookup and capture use the tools directly.
+description: Maintain source-linked VA, vLLM, NPU, AI and infrastructure knowledge through independent research, topics, aliases or digests; also consolidate compatible notes or prepare an authorized public contribution. Ordinary lookup and capture use the tools directly.
 ---
 
 # Curate knowledge
@@ -9,6 +9,11 @@ Make the requested notes easier to reuse. Use ordinary Markdown with a title and
 body; retain conditions, sources, evidence, counterexamples and uncertainty already
 recorded. No fixed headings, labels, coordinates or extra report are needed.
 Knowledge is reference material; review or publication does not establish a fact.
+
+The library serves vLLM-Ascend development. Default PR experience sources are
+`vllm-project/vllm` and `vllm-project/vllm-ascend`. VAWS engineering validation
+belongs in its separate validation archive; it is not the default research
+corpus. Preserve useful existing private notes when adjusting topic preferences.
 
 Start from the relevant material already available. If more context would help,
 `knowledge_query(text)` finds related notes and `knowledge_explain(ref)` reads the
@@ -21,6 +26,19 @@ to linked local sources since observation. It only writes a rebuildable cache;
 it does not edit notes. Missing sources mean unknown, and age is not proof of
 staleness. An independent maintenance agent can inspect these hints using the
 same skill; ordinary task agents do not need to call it or wait for maintenance.
+
+For an independent research/topic/digest run, read
+[independent maintenance](references/independent-maintenance.md). It explains
+Grok Bot handoff, bounded inputs, normal Markdown outputs, automatic aliases,
+history and source checks. Use agent-native vision for images; the separately
+installable intake tool can optionally extract/OCR source files. Import and
+model dependencies do not belong in the ordinary MCP query process.
+
+For a code-linked topic, the optional `code-map` command records static Python
+and C++ references at a selected local revision; `relations` creates backlinks
+and affected-note candidates. Command `--help` describes the bounded arguments.
+Static registration links do not prove that a kernel ran. Cursor's private
+index is not required. Source gaps and symbol candidates require judgment.
 
 Useful judgments:
 
