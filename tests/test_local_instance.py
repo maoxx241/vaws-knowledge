@@ -89,7 +89,16 @@ print(json.dumps({'out': out.decode().strip(), 'err': err.decode(), 'exit': chil
         while time.monotonic() < deadline and not pid_alive(proc.pid):
             time.sleep(0.05)
         self.assertTrue(pid_alive(proc.pid))
-        self.assertTrue(owned_process(proc.pid, marker))
+        # A live PID does not mean the Windows CIM provider is warm. Wait for
+        # actual command-line evidence, keeping production's fail-closed check
+        # unchanged. Three bounded reads allow at most about 15 seconds.
+        observed = False
+        for _ in range(3):
+            observed = owned_process(proc.pid, marker)
+            if observed:
+                break
+            time.sleep(0.05)
+        self.assertTrue(observed, "process command line did not become observable")
         self.assertFalse(owned_process(proc.pid, "not-this-instance"))
 
     def test_stop_owned_leaves_unrelated_pid_alone(self) -> None:
