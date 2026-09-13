@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vaws-knowledge"
-version = "0.7.2"
+version = "0.7.3"
 description = "Local Markdown knowledge indexed through OpenViking"
 readme = "README.md"
 license = "MIT"
@@ -13,7 +13,7 @@ authors = [
   { name = "vLLM Ascend contributors" },
 ]
 dependencies = [
-  "vaws-diagnostics @ git+https://github.com/vllm-ascend-workspace/vaws-diagnostics@3595e4e5ae776a1728099f237792ffb022ae12c8",
+  "vaws-diagnostics @ git+https://github.com/vllm-ascend-workspace/vaws-diagnostics@a9135c13bcd3ec88dd3a7c2f454a57f9bee9be14",
   "PyYAML>=6.0",
   "openviking==0.4.19",
   "openviking-sdk==0.1.10",
