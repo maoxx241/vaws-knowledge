@@ -1,0 +1,60 @@
+{
+  "changes": {
+    "added": [
+      "cases/pr-16157-acl-graph-padding-precision.case.md",
+      "maintenance/2026-09-13-run-summary.md",
+      "topics/pr-16157-acl-graph-padding-precision.md",
+      "topics/vaws-corpus-nav-va-npu-infra.md"
+    ],
+    "removed": [],
+    "renamed": [],
+    "updated": []
+  },
+  "files": [
+    {
+      "input_sha256": "ae2db48bd6e0b079daab3710e5991b4065493f7f2977726c192b83f0ff9df430",
+      "metadata_sha256": "8d66b3666a5885a93b21e82c503ad87c5199f3cfb7bf49d54d07ec440d1f1572",
+      "metadata_size": 522,
+      "path": "cases/pr-16157-acl-graph-padding-precision.case.md",
+      "sha256": "ae2db48bd6e0b079daab3710e5991b4065493f7f2977726c192b83f0ff9df430",
+      "size": 4354,
+      "source_sha256": "ae2db48bd6e0b079daab3710e5991b4065493f7f2977726c192b83f0ff9df430"
+    },
+    {
+      "input_sha256": "c5c6e486cfba82036879962eddac8b75d13f02f272968439ba8b65a61089b5a7",
+      "metadata_sha256": "95f248b4c016025a590c38b5c43e24949bc3c1a2aee95d508ee6bb367cbe141e",
+      "metadata_size": 466,
+      "path": "maintenance/2026-09-13-run-summary.md",
+      "sha256": "c5c6e486cfba82036879962eddac8b75d13f02f272968439ba8b65a61089b5a7",
+      "size": 3357,
+      "source_sha256": "c5c6e486cfba82036879962eddac8b75d13f02f272968439ba8b65a61089b5a7"
+    },
+    {
+      "input_sha256": "27a5156d07dc46a228787725bb6034f301440b431ffb39b5d454767f27f57166",
+      "metadata_sha256": "ba78b28d6cab2ad82df49d6402ede8c9a1182141d0faef8a031e747bc0d21f6c",
+      "metadata_size": 558,
+      "path": "topics/pr-16157-acl-graph-padding-precision.md",
+      "sha256": "27a5156d07dc46a228787725bb6034f301440b431ffb39b5d454767f27f57166",
+      "size": 9812,
+      "source_sha256": "27a5156d07dc46a228787725bb6034f301440b431ffb39b5d454767f27f57166"
+    },
+    {
+      "input_sha256": "532d2ba4d37375881aa734659f3c395dc5e3bc9271374d6a3d6ae0f4450202c4",
+      "metadata_sha256": "00cd73e7c7c4e366074668d3a9b7b9081476fe133d53fedd98159c88a8767b7a",
+      "metadata_size": 514,
+      "path": "topics/vaws-corpus-nav-va-npu-infra.md",
+      "sha256": "532d2ba4d37375881aa734659f3c395dc5e3bc9271374d6a3d6ae0f4450202c4",
+      "size": 5840,
+      "source_sha256": "532d2ba4d37375881aa734659f3c395dc5e3bc9271374d6a3d6ae0f4450202c4"
+    }
+  ],
+  "includes": [
+    "cases",
+    "maintenance",
+    "topics"
+  ],
+  "previous_snapshot": null,
+  "redaction_profile": "r2",
+  "schema": "vaws-curation-export/1",
+  "snapshot": "f1a2fa235d265a53969ceaa3851787debadd9514a28b3bb0ba793bc1c99d4871"
+}
