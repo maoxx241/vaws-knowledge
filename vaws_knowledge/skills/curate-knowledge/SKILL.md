@@ -12,7 +12,17 @@ Knowledge is reference material; review or publication does not establish a fact
 
 Start from the relevant material already available. If more context would help,
 `knowledge_query(text)` finds related notes and `knowledge_explain(ref)` reads the
-original. Query failure does not prevent independent edits. Useful judgments:
+original. Query failure does not prevent independent edits.
+
+For a maintenance pass, `python -m vaws_knowledge health --config PATH` gives a
+bounded local worklist without an index, model or external requests. It reports
+exact duplicate text with compatible recorded conditions, age hints and changes
+to linked local sources since observation. It only writes a rebuildable cache;
+it does not edit notes. Missing sources mean unknown, and age is not proof of
+staleness. An independent maintenance agent can inspect these hints using the
+same skill; ordinary task agents do not need to call it or wait for maintenance.
+
+Useful judgments:
 
 - Merge duplicates only when they describe the same behavior under compatible
   conditions. Keep differing versions, topologies or observations visible.

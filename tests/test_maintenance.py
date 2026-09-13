@@ -31,7 +31,7 @@ class Maintenance(unittest.TestCase):
     def test_local_readiness_does_not_require_publishing(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = self.config(Path(tmp))
-            self.assertEqual([], query(config, text="maintenancecanary").results)
+            self.assertEqual(["lexical"], query(config, text="maintenancecanary").results[0]["retrieval"])
             with patch("vaws_knowledge.publishing.run_once", return_value={"status": "disabled"}) as shared:
                 result = maintain(config, verify=True)
             self.assertTrue(result["ready"], result)
@@ -153,7 +153,8 @@ class Maintenance(unittest.TestCase):
                     worker.stop()
                 # Reconnection is no longer a forced full audit. The fresh
                 # receipt remains reusable until its explicit audit deadline.
-                self.assertEqual([], query(config, text="maintenancecanary").results)
+                self.assertEqual({}, config.retrieval.documents)
+                self.assertEqual(["lexical"], query(config, text="maintenancecanary").results[0]["retrieval"])
                 receipt = json.loads((config.state_root / "maintenance.json").read_text())
                 with patch("vaws_knowledge.maintenance.time.time", return_value=receipt["next_verify"] + 1):
                     self.assertTrue(maintain(config)["ready"])

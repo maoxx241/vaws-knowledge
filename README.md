@@ -109,6 +109,45 @@ the prior version. MCP handles configured retries and synchronization internally
 See [distribution](docs/distribution.md); detailed formats belong to the package,
 not note authors.
 
+## Retrieval evidence and independent maintenance
+
+Queries fuse the existing vector ranking with lexical matches from mounted
+Markdown. Exact code identifiers and Chinese text remain searchable while the
+vector service is pending; the result still reports degraded/unavailable when
+that route fails. Each source URI contributes once per route. Relevance scores
+are reciprocal ranks, not truth or applicability confidence.
+
+Hits include a matching source window, one-based Markdown lines, clipping
+information, and the SHA256 of UTF-8 text with normalized newlines. Shared-pack
+hits identify their indexed snapshot and source revision when available.
+`knowledge_explain` still reads the original. Local source changes can make a
+later read differ; the hash identifies what this query actually observed.
+
+For a separate maintenance task, `python -m vaws_knowledge health --config PATH`
+returns a local worklist (first 50 findings; `--limit` changes only output size).
+No model or external source is called. Mechanical hints cover exact duplicate
+Markdown with matching recorded context, note age, unavailable sources and
+changes to relative links inside mounted roots since observation. Only a
+rebuildable cache is written. Age and lookup failures do not establish that a
+claim is stale or false. External and unrecorded sources remain unchecked.
+
+Active knowledge maintenance refreshes the worklist at its deadline or a change
+wakeup. It reuses unchanged parsed records and reports; its failures never
+change index readiness. An independent maintainer can use the existing
+`curate-knowledge` skill for semantic decisions and authorized note edits.
+Ordinary task agents have no added tool call or completion step. No autonomous
+LLM, scheduler, deletion, merging, promotion or public publication is enabled.
+
+Repeated native final-response events retain the first timestamp and provenance,
+skip duplicate writes/contribution queueing, and preserve maintainer edits.
+
+The design borrows rank fusion and source evidence from
+[WeKnora](https://github.com/Tencent/WeKnora/blob/17f893865d4d8337f7e0bf942c6931a8ce7a08c1/internal/application/service/knowledgebase_search_fusion.go),
+and incremental/source-aware maintenance from
+[TeamAI](https://github.com/Tencent/teamai-cli/blob/6dc1b9919ef1856717c381d6559bb7738089075e/src/wiki-engine/code-knowledge/code-incremental.ts).
+Both remain research references, with no runtime dependency or additional Agent
+obligations.
+
 ## Validation
 
 Local tests cover Markdown capture/query, index reconciliation, public redaction,

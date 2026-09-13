@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import pathlib
+import hashlib
+import json
 import sys
 import tempfile
 import unittest
@@ -12,7 +14,8 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "fixtures" / "s
 
 import support  # noqa: E402
 from vaws_knowledge.local.backend import MemoryBackend
-from vaws_knowledge.markdown import meta_path
+from vaws_knowledge.local.reconcile import reconcile_markdown
+from vaws_knowledge.markdown import meta_path, save_document
 from vaws_knowledge.server.capture import CaptureRefused, CaptureRejected, capture, delete
 from vaws_knowledge.server.query import query
 
@@ -100,6 +103,44 @@ class CaptureMarkdown(unittest.TestCase):
             self.assertIn("again", pathlib.Path(first["path"]).read_text(encoding="utf-8"))
             self.assertIn("通信超时", pathlib.Path(second["path"]).read_text(encoding="utf-8"))
             self.assertEqual("图模式失败", query(config, text="graph compile").to_dict()["results"][0]["title"])
+
+    def test_indexed_snapshot_is_not_relabelled_after_concurrent_edit(self) -> None:
+        for newline in (b"\n", b"\r\n"):
+            for concurrent_edit in (False, True):
+                with self.subTest(newline=newline, concurrent_edit=concurrent_edit), tempfile.TemporaryDirectory() as tmp:
+                    config = _config(tmp)
+                    original_bytes = None
+                    saved_path = None
+                    replacement = b"# Concurrent observation\n\nA later edit must be indexed.\n"
+
+                    def save_with_newlines(*args, **kwargs):
+                        nonlocal original_bytes, saved_path
+                        document = save_document(*args, **kwargs)
+                        saved_path = document.path
+                        original_bytes = saved_path.read_bytes().replace(b"\n", newline)
+                        saved_path.write_bytes(original_bytes)
+                        return document
+
+                    upsert = config.retrieval.upsert
+
+                    def edit_during_upsert(uri, content, *, layer, wait=True):
+                        upsert(uri, content, layer=layer, wait=wait)
+                        if concurrent_edit:
+                            saved_path.write_bytes(replacement)
+
+                    with mock.patch("vaws_knowledge.server.capture.save_document", side_effect=save_with_newlines), \
+                            mock.patch.object(config.retrieval, "upsert", side_effect=edit_during_upsert):
+                        captured = capture(title="Concurrent observation", content="Original indexed observation.", config=config)
+
+                    ledger = json.loads((config.state_root / "markdown-index.json").read_text(encoding="utf-8"))
+                    self.assertEqual(hashlib.sha256(original_bytes).hexdigest(), ledger["documents"][captured["ref"]]["sha256"])
+                    self.assertTrue(config.retrieval.check_document(captured["ref"], original_bytes.decode("utf-8").replace("\r\n", "\n")))
+                    reconciled = reconcile_markdown(config, layers=["candidate"])
+                    # A changed file is fixed by the next ordinary pass, while
+                    # an unchanged CRLF file must not incur another embedding.
+                    self.assertEqual(int(concurrent_edit), reconciled.upserted)
+                    if concurrent_edit:
+                        self.assertTrue(config.retrieval.check_document(captured["ref"], replacement.decode("utf-8")))
 
     def test_dry_run_does_not_write_or_delete_existing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

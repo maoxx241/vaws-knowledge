@@ -36,6 +36,7 @@ def main(argv: list[str] | None = None) -> int:
         choices=(
             "server",
             "prepare",
+            "health",
             "redact",
             "query",
             "capture",
@@ -72,6 +73,22 @@ def main(argv: list[str] | None = None) -> int:
         from vaws_knowledge.maintenance import main as prepare_main
 
         return prepare_main(rest)
+    if command == "health":
+        import json
+        from vaws_knowledge.health import inspect_knowledge
+        from vaws_knowledge.server.layers import load_config
+
+        health_parser = argparse.ArgumentParser(description="Inspect local maintenance hints without models, network or note edits")
+        health_parser.add_argument("--config")
+        health_parser.add_argument("--limit", type=int, default=50, help="maximum findings to print (default: 50)")
+        options = health_parser.parse_args(rest)
+        if options.limit < 1:
+            health_parser.error("--limit must be positive")
+        report = inspect_knowledge(load_config(path=options.config))
+        findings = report.get("findings", [])
+        report.update(finding_count=len(findings), findings=findings[:options.limit], truncated=len(findings) > options.limit)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
     if command == "redact":
         from vaws_knowledge.redact import main as redact_main
 

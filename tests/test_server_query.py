@@ -218,7 +218,8 @@ class QueryMarkdown(unittest.TestCase):
             payload = query(config, text="keepmequartz", layers=["project"]).to_dict()
             self.assertTrue(path.is_file())
             self.assertTrue(payload["degraded"])
-            self.assertEqual([], payload["results"])
+            self.assertEqual(["lexical"], payload["results"][0]["retrieval"])
+            self.assertEqual(str(path), payload["results"][0]["path"])
 
     def test_query_does_not_index_mounted_markdown(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -249,7 +250,8 @@ class QueryMarkdown(unittest.TestCase):
             with patch("vaws_knowledge.local.reconcile.reconcile_markdown", side_effect=AssertionError("query indexed")):
                 payload = query(config, text="sharedonyx", layers=["shared"]).to_dict()
             self.assertEqual([], upserts)
-            self.assertEqual(0, payload["count"])
+            self.assertEqual(1, payload["count"])
+            self.assertEqual(["lexical"], payload["results"][0]["retrieval"])
             self.assertNotIn("viking://resources/shared/public.md", backend.documents)
 
 

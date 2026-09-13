@@ -15,7 +15,8 @@ from vaws_knowledge import package_version
 from vaws_knowledge.local.backend import Hit, backend_for_config
 from vaws_knowledge.local.instance import instance_for_config
 from vaws_knowledge.local.shared import current_shared
-from vaws_knowledge.markdown import Document, iter_markdown_files, layer_from_uri, load_document, parse_markdown
+from vaws_knowledge.markdown import Document, iter_markdown_files, layer_from_uri, load_document, parse_markdown, relative_posix, uri_for
+from vaws_knowledge.retrieval import fuse, lexical_search, source_excerpt
 from vaws_knowledge.server.layers import LAYERS, ServiceConfig, shared_source
 
 NO_RESULT_MEANING = (
@@ -29,7 +30,7 @@ REFERENCE_NOTE = (
     "prove hardware facts."
 )
 
-def load_layer_documents(config: ServiceConfig, layers: Sequence[str]) -> list[Document]:
+def load_layer_documents(config: ServiceConfig, layers: Sequence[str], *, errors: list[str] | None = None) -> list[Document]:
     documents: list[Document] = []
     for layer in layers:
         mount = config.mount(layer)
@@ -37,10 +38,27 @@ def load_layer_documents(config: ServiceConfig, layers: Sequence[str]) -> list[D
             continue
         for root in mount.roots:
             base = Path(root)
-            for path in iter_markdown_files(base):
+            try:
+                if not base.is_dir():
+                    if layer == "candidate" and not base.exists():
+                        continue
+                    raise OSError("mounted source directory is unavailable")
+                paths = iter_markdown_files(base)
+            except OSError as exc:
+                if errors is not None:
+                    errors.append(f"{base}: {exc}")
+                continue
+            for path in paths:
                 try:
-                    documents.append(load_document(path, layer=layer, root=base))
-                except (OSError, UnicodeDecodeError):
+                    path.resolve().relative_to(base.resolve())
+                    path.with_suffix(".meta.json").resolve().relative_to(base.resolve())
+                    document = load_document(path, layer=layer, root=base)
+                    if document.uri != uri_for(layer, relative_posix(path, base)):
+                        raise ValueError("document identity disagrees with mounted source")
+                    documents.append(document)
+                except (OSError, UnicodeDecodeError, ValueError) as exc:
+                    if errors is not None:
+                        errors.append(f"{path}: {exc}")
                     continue
     return documents
 
@@ -72,6 +90,7 @@ class QueryResponse:
             "absent_fact_semantics": "unknown",
             "no_result_meaning": NO_RESULT_MEANING,
             "count": len(self.results),
+            "score_kind": "reciprocal_rank_fusion",
             "inspected": self.inspected,
             "notes": list(self.notes),
             "results": list(self.results),
@@ -82,7 +101,7 @@ class QueryResponse:
         return payload
 
 
-def _hit_payload(hit: Hit, document: Document | None) -> dict[str, Any]:
+def _hit_payload(hit: Hit, document: Document | None, *, text: str = "") -> dict[str, Any]:
     title = (document.title if document else None) or hit.title
     excerpt = (document.excerpt() if document else None) or hit.excerpt
     layer = (document.layer if document else None) or hit.layer or layer_from_uri(hit.uri) or ""
@@ -104,6 +123,14 @@ def _hit_payload(hit: Hit, document: Document | None) -> dict[str, Any]:
     if document:
         payload["path"] = str(document.path)
         payload["slug"] = document.slug
+        if document.captured_at:
+            payload["captured_at"] = document.captured_at
+    raw = document.raw_text if document else hit.content
+    if raw:
+        evidence = source_excerpt(raw, text)
+        evidence.update(source="mounted_markdown" if document else "indexed_shared_snapshot")
+        payload["excerpt"] = evidence.pop("text")
+        payload["evidence"] = evidence
     return payload
 
 
@@ -131,19 +158,7 @@ def query(
     ok, detail = backend.ready()
     notes: list[str] = [REFERENCE_NOTE]
     if not ok:
-        notes.append(
-            "knowledge index is unavailable; this is not evidence that no document exists"
-        )
-        return QueryResponse(
-            results=[],
-            degraded=True,
-            unavailable=True,
-            index_detail=detail,
-            notes=notes,
-            request=request,
-            layers_available=consulted["layers_available"],
-            layers_absent=consulted["layers_absent"],
-        )
+        notes.append("Vector retrieval is unavailable; mounted Markdown is searched lexically. Shared pack results may be missing.")
 
     from vaws_knowledge.maintenance import maintenance_status
 
@@ -155,28 +170,41 @@ def query(
     fetch = max(int(limit or 8) * 4, 16)
     searched_layers = consulted["layers_available"]
     try:
-        hits = backend.search(text, layers=searched_layers, limit=fetch) if searched_layers else []
+        hits = backend.search(text, layers=searched_layers, limit=fetch) if ok and searched_layers else []
     except Exception as exc:
-        return QueryResponse(degraded=True, unavailable=True,
-                             index_detail=f"{type(exc).__name__}: {exc}", notes=notes, request=request,
-                             layers_available=consulted["layers_available"], layers_absent=consulted["layers_absent"])
-    catalog = documents_by_uri(config, wanted_layers)
+        hits = []
+        ok = False
+        detail = f"{type(exc).__name__}: {exc}"
+        notes.append("Vector search failed; mounted Markdown is searched lexically. Results may be incomplete.")
+    source_errors: list[str] = []
+    catalog = {document.uri: document for document in load_layer_documents(config, wanted_layers, errors=source_errors)}
+    if source_errors:
+        notes.append(f"{len(source_errors)} source(s) could not be read; lexical results may be incomplete: {source_errors[0]}")
     active = current_shared(instance_for_config(config).state_root) if "shared" in searched_layers else None
     active_prefix = str(active["root_uri"]).rstrip("/") + "/" if active else ""
-    kept: list[dict[str, Any]] = []
+    valid_hits: list[Hit] = []
     for hit in hits:
         document = catalog.get(hit.uri)
         # A lost ledger must not make deleted local files reappear as references.
         # Only the current imported pack has its authoritative source off disk.
         if document is None and not (active_prefix and hit.uri.startswith(active_prefix)):
             continue
-        kept.append(_hit_payload(hit, document))
+        if hit.layer and hit.layer not in searched_layers:
+            continue
+        valid_hits.append(hit)
+    lexical = lexical_search(text, list(catalog.values()), limit=fetch)
+    kept: list[dict[str, Any]] = []
+    for hit, methods in fuse(valid_hits, lexical):
+        item = _hit_payload(hit, catalog.get(hit.uri), text=text)
+        item["retrieval"] = methods
+        if hit.uri.startswith(active_prefix) and active_prefix:
+            item["source_git_sha"] = active.get("source_git_sha")
+        kept.append(item)
     cap = max(int(limit or 8), 1)
-    kept.sort(key=lambda item: (-float(item.get("score") or 0), str(item.get("uri") or "")))
     return QueryResponse(
         results=kept[:cap],
-        degraded=consulted["degraded"] or pending,
-        unavailable=False,
+        degraded=consulted["degraded"] or pending or not ok or bool(source_errors),
+        unavailable=not ok,
         index_detail=detail,
         notes=notes,
         request=request,

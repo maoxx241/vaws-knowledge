@@ -24,6 +24,7 @@ from vaws_knowledge.server.layers import ServiceConfig, load_config
 
 POLL_SECONDS = 10
 VERIFY_SECONDS = 3600
+HEALTH_SECONDS = 3600
 
 
 def maintenance_status(config: ServiceConfig) -> dict[str, Any]:
@@ -50,7 +51,23 @@ def maintain(config: ServiceConfig, *, verify: bool = False, force: bool = False
             "status": "pending", "ready": False, "checked_at": now,
             "next_check": now + POLL_SECONDS,
             "next_verify": previous.get("next_verify", 0),
+            "next_health": previous.get("next_health", 0),
         }
+        if "health" in previous:
+            result["health"] = previous["health"]
+        if audit or force or now >= result["next_health"]:
+            # Worklist generation is independent of vector readiness. Its
+            # observations never become an admission or repair prerequisite.
+            try:
+                from vaws_knowledge.health import inspect_knowledge
+
+                health = inspect_knowledge(config)
+                result["health"] = {"status": health["status"], "findings": len(health.get("findings", [])),
+                                    "snapshot": health.get("snapshot"), "reused": health.get("reused", False)}
+                result["next_health"] = now + (60 if health["status"] == "busy" else HEALTH_SECONDS)
+            except Exception as exc:
+                result["health"] = {"status": "unknown", "reason": f"{type(exc).__name__}: {exc}"[:1000]}
+                result["next_health"] = now + 60
         try:
             backend = backend_for_config(config)
             if backend.name == "openviking":
