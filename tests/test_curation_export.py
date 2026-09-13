@@ -134,6 +134,25 @@ def test_document_and_byte_limits_keep_previous_output(feed):
         export.export_notes(source, output, max_bytes=export.MAX_BYTES + 1)
 
 
+def test_long_lived_feed_accepts_1024_notes_and_rejects_overflow_without_switching(tmp_path):
+    source, output = tmp_path / "source", tmp_path / "exports"
+    cases = source / "cases"
+    cases.mkdir(parents=True)
+    for number in range(1024):
+        (cases / f"case-{number:04d}.md").write_text(
+            f"# ACLGraph observation {number}\n\nStatic public source analysis; NPU execution remains unverified.\n",
+            encoding="utf-8")
+    first = export.export_notes(source, output)
+    root, manifest = verified(first)
+    assert first["files"] == 1024 and len(manifest["files"]) == 1024
+    assert (root / "prepared.json").stat().st_size > 256 * 1024
+    pointer = (output / "current.json").read_bytes()
+    (cases / "one-too-many.md").write_text("# Extra case\n\nCapacity overflow must keep the active feed.\n", encoding="utf-8")
+    failed = export.export_notes(source, output)
+    assert failed["status"] == "incomplete" and "1024-document" in failed["reason"]
+    assert (output / "current.json").read_bytes() == pointer
+
+
 def test_concurrent_source_edit_and_failed_activation_preserve_current_export(feed, monkeypatch):
     source, output, path = feed
     verified(export.export_notes(source, output))
