@@ -219,7 +219,7 @@ class QueryMarkdown(unittest.TestCase):
             self.assertTrue(path.is_file())
             self.assertTrue(payload["degraded"])
             self.assertEqual(["lexical"], payload["results"][0]["retrieval"])
-            self.assertEqual(str(path), payload["results"][0]["path"])
+            self.assertEqual(path.resolve(), pathlib.Path(payload["results"][0]["path"]).resolve())
 
     def test_query_does_not_index_mounted_markdown(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -293,7 +293,8 @@ class SharedReferenceRoundTrip(unittest.TestCase):
             self.assertNotIn("shared", config.absent_layers())
             found, error = service.call_tool("knowledge_query", {"text": "packcanary"})
             self.assertFalse(error, found)
-            self.assertFalse(found["degraded"], found)
+            self.assertTrue(found["incomplete"], found)  # No lexical catalog has been prepared.
+            self.assertFalse(found["unavailable"], found)
             self.assertEqual([ref], [item["ref"] for item in found["results"]])
             original, error = service.call_tool("knowledge_explain", {"ref": ref})
             self.assertFalse(error, original)

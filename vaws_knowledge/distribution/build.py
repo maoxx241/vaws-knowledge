@@ -114,19 +114,25 @@ def _materialize(repo: Path, sha: str, subdir: str, target: Path) -> list[dict[s
                 if not member.isfile():
                     continue
                 name = PurePosixPath(member.name)
-                if any(part in ("", ".", "..") for part in name.parts):
+                if name.is_absolute() or any(char in member.name for char in "\\:\x00") or any(part in ("", ".", "..") for part in name.parts):
                     raise BuildError(f"unsafe path in git archive: {member.name!r}")
                 if base is not None:
                     try:
                         name = name.relative_to(base)
                     except ValueError:
                         continue
-                if name.suffix.lower() != ".md":
+                if name.suffix.lower() != ".md" and not name.name.endswith(".meta.json"):
                     continue
+                from vaws_knowledge.markdown import MAX_REFERENCE_BYTES, MAX_METADATA_BYTES
+                maximum = MAX_REFERENCE_BYTES if name.suffix.lower() == ".md" else MAX_METADATA_BYTES
+                if member.size > maximum:
+                    raise BuildError(f"{name}: source exceeds the {maximum}-byte document budget")
                 raw = archive.extractfile(member).read()  # type: ignore[union-attr]
                 destination = target / Path(*name.parts)
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 destination.write_bytes(raw)
+                if name.suffix.lower() != ".md":
+                    continue
                 files.append(
                     {
                         "path": name.as_posix(),
@@ -136,7 +142,12 @@ def _materialize(repo: Path, sha: str, subdir: str, target: Path) -> list[dict[s
                 )
     except tarfile.TarError as exc:
         proc.kill()
+        proc.communicate(timeout=30)
         raise BuildError(f"cannot read git archive of {sha}: {exc}") from None
+    except BaseException:
+        proc.kill()
+        proc.communicate(timeout=30)
+        raise
     _, stderr = proc.communicate(timeout=120)
     if proc.returncode != 0:
         raise BuildError(f"git archive failed: {stderr.decode('utf-8', 'replace').strip()}")
@@ -219,11 +230,28 @@ def build_pack(
         files = _materialize(repo, sha, corpus_subdir, materialized)
         if not files:
             raise BuildError(f"no markdown files under {corpus_subdir!r} at {sha}")
+        from vaws_knowledge.distribution.references import prepare_reference, write_references
+        import json
+        reference_rows = []
         for entry in files:
-            text = (materialized / Path(*PurePosixPath(entry["path"]).parts)).read_text(
+            path = materialized / Path(*PurePosixPath(entry["path"]).parts)
+            text = path.read_text(
                 encoding="utf-8"
             )
             check_markdown_contract(entry["path"], text)
+            metadata = {}
+            if path.with_suffix(".meta.json").is_file():
+                try:
+                    metadata = json.loads(path.with_suffix(".meta.json").read_text(encoding="utf-8"))
+                except (OSError, ValueError) as exc:
+                    raise BuildError(f"{entry['path']}: invalid source metadata") from exc
+            public_text, reference = prepare_reference(entry["path"], text, metadata)
+            path.write_text(public_text, encoding="utf-8", newline="\n")
+            raw = public_text.encode("utf-8")
+            entry.update(sha256=hashlib.sha256(raw).hexdigest(), size=len(raw))
+            reference_rows.append(reference)
+        references_path = out_dir / f"{name}-{version_id}.references.json"
+        references = write_references(references_path, source_git_sha=sha, documents=reference_rows)
 
         if client is None:
             if client_factory is None:
@@ -305,6 +333,7 @@ def build_pack(
             "count": len(files),
             "content_sha256": content_digest(files),
         },
+        "references": references,
     }
     calls = metrics_delta(before, after)
     if calls:

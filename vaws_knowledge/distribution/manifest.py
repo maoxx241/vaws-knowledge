@@ -280,6 +280,9 @@ def validate_release_manifest(data: Any, *, expected: ExpectedContract) -> Relea
             and isinstance(entry.get("size"), int),
             f"content.files entry is malformed: {entry!r}",
         )
+        _require(not entry["path"].startswith(("/", "\\")) and not any(c in entry["path"] for c in "\\:\x00")
+                 and all(part not in {"", ".", ".."} for part in entry["path"].split("/")), "content file path is unsafe")
+    _require(len({entry["path"] for entry in files}) == len(files), "content file paths are not unique")
     _require(
         content.get("count") == len(files),
         f"content.count {content.get('count')!r} != number of content.files {len(files)}",
@@ -288,6 +291,19 @@ def validate_release_manifest(data: Any, *, expected: ExpectedContract) -> Relea
         re.match(r"^[0-9a-f]{64}$", str(content.get("content_sha256") or "")) is not None,
         "content.content_sha256 must be 64 lowercase hex",
     )
+    references = data.get("references")
+    if references is not None:
+        _require(isinstance(references, dict), "references must be an object")
+        name = references.get("file")
+        _require(isinstance(name, str) and bool(name) and name not in {".", "..", pack["file"], "release.json"}
+                 and not any(char in name for char in "/\\:\x00"), "references.file must be a distinct single asset filename")
+        _require(re.fullmatch(r"[0-9a-f]{64}", str(references.get("sha256") or "")) is not None,
+                 "references.sha256 must be 64 lowercase hex")
+        _require(isinstance(references.get("size"), int) and not isinstance(references["size"], bool)
+                 and 0 < references["size"] <= 64 * 1024 * 1024, "references.size must fit the 64 MiB budget")
+        _require(references.get("schema") == "vaws-knowledge-references/1", "unsupported references schema")
+        _require(references.get("source_git_sha") == sha, "references must bind the same source Git SHA")
+        _require(references.get("count") == len(files), "references.count must match the released body count")
 
     build = data.get("build") if isinstance(data.get("build"), dict) else {}
     openviking = str(build.get("openviking") or "")

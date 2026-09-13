@@ -48,7 +48,10 @@ class OpenVikingBackend:
 
     def ready(self) -> tuple[bool, str]:
         try:
-            self._connect(start=False, reader=True)
+            # A connected HTTP reader proves its liveness with the ensuing
+            # bounded request. Repeating the process-ownership/CIM audit here
+            # makes every warm query pay a maintenance cost on Windows.
+            self._read_client()
         except Exception as exc:  # noqa: BLE001 - query never prepares the engine
             return False, f"{type(exc).__name__}: {exc}"
         return True, "openviking ready"
@@ -122,6 +125,7 @@ class OpenVikingBackend:
         except Exception as exc:  # noqa: BLE001
             if _not_found(exc):
                 return None
+            self._drop_reader(client)
             raise
 
     def search(
@@ -142,12 +146,18 @@ class OpenVikingBackend:
         targets = list(dict.fromkeys(targets))
         if not targets:
             return []
-        payload = client.find(
-            text or "",
-            target_uri=targets,
-            limit=fetch,
-            options={"level": 2, "read_content": True, "score_threshold": 0},
-        )
+        try:
+            payload = client.find(
+                text or "",
+                target_uri=targets,
+                limit=fetch,
+                options={"level": 2, "read_content": True, "score_threshold": 0},
+            )
+        except Exception:
+            # Return this failure, without a hidden second network timeout.
+            # The next request reconnects to the then-current owned instance.
+            self._drop_reader(client)
+            raise
         resources = payload.get("resources") if isinstance(payload, dict) else None
         for item in resources if isinstance(resources, list) else ():
             if not isinstance(item, dict):
@@ -171,6 +181,16 @@ class OpenVikingBackend:
     def _read_client(self) -> Any:
         return self._reader if self._reader is not None else self._connect(start=False, reader=True)
 
+    def _drop_reader(self, client: Any) -> None:
+        if client is not self._reader:
+            return
+        self._reader = None
+        self._reader_binding = None
+        try:
+            client.close()
+        except Exception:
+            pass
+
     def _maintenance_client(self, *, start: bool = True) -> Any:
         return self._client if self._client is not None else self._connect(start=start, reader=False)
 
@@ -183,6 +203,8 @@ class OpenVikingBackend:
         if not status.get("live"):
             raise RuntimeError("knowledge engine is not running; background preparation is pending")
         binding = (status["openviking_url"], self.instance.data_key())
+        if not reader and self._reader is not None and self._reader_binding != binding:
+            self._drop_reader(self._reader)
         previous = self._reader if reader else self._client
         previous_binding = self._reader_binding if reader else self._client_binding
         if previous is not None and binding == previous_binding:

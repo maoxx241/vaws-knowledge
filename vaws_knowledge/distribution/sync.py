@@ -132,22 +132,23 @@ class DistributionState:
             pass
 
 
-def current_shared(state_root: Path) -> dict[str, str] | None:
+def current_shared(state_root: Path) -> dict[str, Any] | None:
     """The active shared version, or ``None``.
 
-    Returns exactly ``{source_git_sha, root_uri, manifest_path}`` so the local
-    backend can search the active shared root; a missing/corrupt pointer means
-    "no shared version", never a crash for existing queries.
+    Returns the active vector root and, when prepared, its matching immutable
+    Markdown/metadata mount. A missing/corrupt pointer means no shared version.
     """
 
     payload = DistributionState(state_root).read_current()
     if payload is None:
         return None
-    return {
+    result = {
         "source_git_sha": payload["source_git_sha"],
         "root_uri": payload["root_uri"],
         "manifest_path": payload["manifest_path"],
     }
+    result.update({key: payload[key] for key in ("prepared_root", "prepared_manifest_sha256", "references_sha256", "metadata_status") if key in payload})
+    return result
 
 
 def _lock_file_nb(fd: int) -> None:
@@ -264,6 +265,9 @@ def _stage_download(snapshot: Any, staging: Path) -> Path:
     target = staging / snapshot.manifest.pack["file"]
     try:
         shutil.copyfile(snapshot.pack_path, target)
+        if snapshot.manifest.data.get("references"):
+            name = snapshot.manifest.data["references"]["file"]
+            shutil.copyfile(Path(snapshot.pack_path).parent / name, staging / name)
     except OSError as exc:
         raise SourceUnavailable(
             f"cannot stage {snapshot.pack_path} into {staging}: {exc}"
@@ -382,6 +386,14 @@ def _retain_release(state: DistributionState, manifest: ReleaseManifest, pack_pa
         os.replace(temporary, target)
     finally:
         temporary.unlink(missing_ok=True)
+    if manifest.data.get("references"):
+        name = manifest.data["references"]["file"]
+        temp_reference = directory / f".references-{secrets.token_hex(4)}"
+        try:
+            shutil.copyfile(pack_path.parent / name, temp_reference)
+            os.replace(temp_reference, directory / name)
+        finally:
+            temp_reference.unlink(missing_ok=True)
     atomic_write_json(directory / "release.json", manifest.data)
     return directory / "release.json"
 
@@ -431,6 +443,9 @@ def _offline_release(state: DistributionState, current: dict | None, source: Any
                 continue
             try:
                 verify_pack(snapshot.pack_path, snapshot.manifest, expected=contract)
+                if snapshot.manifest.data.get("references"):
+                    from vaws_knowledge.distribution.references import verify_references
+                    verify_references(snapshot.references_path, snapshot.manifest, pack_path=snapshot.pack_path)
             except (DistributionError, OSError, ValueError):
                 continue
             return snapshot, pointer
@@ -506,7 +521,7 @@ def check_and_sync(
     if same_version:
         root_uri = current["root_uri"]
         base["root_uri"] = root_uri
-    if same_version and not verify:
+    if same_version and not verify and current.get("prepared_root"):
         return finish(SyncResult(status="unchanged", **base))
 
     try:
@@ -546,6 +561,9 @@ def check_and_sync(
         pack_path = _stage_download(snapshot, staging)
         try:
             info = verify_pack(pack_path, manifest, expected=contract)
+            if manifest.data.get("references"):
+                from vaws_knowledge.distribution.references import verify_references
+                verify_references(staging / manifest.data["references"]["file"], manifest, pack_path=pack_path)
         except (CorruptPack, IncompatiblePack) as exc:
             status = "incompatible" if isinstance(exc, IncompatiblePack) else "corrupt"
             return finish(SyncResult(status=status, reason=exc.reason, **base, details=details))
@@ -599,7 +617,11 @@ def check_and_sync(
                     or sha256_file(retained_pack) != manifest.pack["sha256"]
                 )
                 manifest_path = _retain_release(state, manifest, pack_path)
-                state.write_current({**current, "manifest_path": str(manifest_path)})
+                from vaws_knowledge.distribution.references import prepare_mount
+                prepared = prepare_mount(state, manifest, pack_path,
+                    references_path=staging / manifest.data["references"]["file"] if manifest.data.get("references") else None,
+                    current=current)
+                state.write_current({**current, "manifest_path": str(manifest_path), **prepared})
                 details["verified"] = True
                 return finish(SyncResult(status="unchanged", details=details, **base))
         import_details = _import_version(
@@ -607,6 +629,10 @@ def check_and_sync(
             metrics_reader=metrics_reader, smoke_query=smoke_query,
         )
         details.update(import_details)
+
+        from vaws_knowledge.distribution.references import prepare_mount
+        prepared = prepare_mount(state, manifest, pack_path,
+            references_path=staging / manifest.data["references"]["file"] if manifest.data.get("references") else None)
 
         version_dir = state.version_dir(version_id)
         manifest_path = _retain_release(state, manifest, pack_path)
@@ -628,6 +654,7 @@ def check_and_sync(
                     "dimension": contract.embedding_dimension,
                 },
                 "activated_at": utc_now(),
+                **prepared,
             }
         )
         if details.get("repair_attempted"):

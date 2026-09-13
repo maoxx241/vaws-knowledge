@@ -57,7 +57,9 @@ def test_first_switch_activates_version(tmp_path):
 
     current = current_shared(tmp_path / "state")
     assert current is not None
-    assert set(current) == {"source_git_sha", "root_uri", "manifest_path"}
+    assert {"source_git_sha", "root_uri", "manifest_path"} <= set(current)
+    assert current["metadata_status"] == "unavailable_legacy"
+    assert Path(current["prepared_root"]).is_dir()
     assert current["source_git_sha"] == GIT_SHA
     assert current["root_uri"] == result.root_uri
     assert Path(current["manifest_path"]).is_file()

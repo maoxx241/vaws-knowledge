@@ -24,6 +24,8 @@ LAYERS = ("shared", "project", "candidate")
 URI_ROOT = "viking://resources"
 SHARED_BOOTSTRAP_URI = f"{URI_ROOT}/shared/bootstrap"
 _TITLE_DIGEST_LEN = 12
+MAX_REFERENCE_BYTES = 4 * 1024 * 1024
+MAX_METADATA_BYTES = 256 * 1024
 
 
 def utc_now() -> str:
@@ -102,6 +104,57 @@ def render_markdown(title: str, content: str) -> str:
     return f"# {heading}\n\n{body}\n" if body else f"# {heading}\n"
 
 
+def normalized_sha256(text: str) -> str:
+    """Content identity shared by generated enrichment and quoted evidence."""
+    return hashlib.sha256(text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")).hexdigest()
+
+
+def retrieval_metadata(value: Any, text: str) -> dict[str, Any]:
+    """Ignore stale generated suggestions without discarding their diagnosis."""
+    if not isinstance(value, Mapping):
+        return {}
+    actual = normalized_sha256(text)
+    if value.get("source_sha256") != actual:
+        return {"source_sha256": value.get("source_sha256"), "current_sha256": actual,
+                "ignored": "source_changed" if value.get("source_sha256") else "source_hash_missing"}
+    aliases = []
+    for alias in value.get("aliases", []) if isinstance(value.get("aliases"), list) else []:
+        if isinstance(alias, str) and alias.strip():
+            aliases.append(alias.strip())
+        elif isinstance(alias, Mapping) and isinstance(alias.get("text"), str) and alias["text"].strip():
+            item = {"text": alias["text"].strip(), "relation": str(alias.get("relation") or "related")}
+            scope = alias.get("scope")
+            if isinstance(scope, str) and scope.strip():
+                item["scope"] = scope.strip()
+            elif isinstance(scope, list):
+                # A malformed explicit scope must not become an unscoped
+                # suggestion merely because none of its entries are usable.
+                if any(not isinstance(part, str) or not part.strip() for part in scope):
+                    continue
+                item["scope"] = [part.strip() for part in scope]
+            aliases.append(item)
+    topics = value.get("topics", [])
+    return {"source_sha256": actual, "aliases": aliases,
+            "topics": sorted({topic.strip() for topic in topics if isinstance(topic, str) and topic.strip()}) if isinstance(topics, list) else []}
+
+
+def retrieval_aliases(document: Document) -> list[str]:
+    """Source-validated alias text whose optional topic scope covers the note."""
+    if document.retrieval.get("ignored"):
+        return []
+    topics = {topic.casefold() for topic in document.retrieval.get("topics", [])}
+    result = []
+    for alias in document.retrieval.get("aliases", []):
+        if isinstance(alias, str):
+            result.append(alias)
+        elif isinstance(alias, Mapping):
+            scope = alias.get("scope") or []
+            scope = [scope] if isinstance(scope, str) else scope
+            if not scope or topics.intersection(part.casefold() for part in scope):
+                result.append(alias["text"])
+    return result
+
+
 def _atomic_write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary_name = tempfile.mkstemp(
@@ -153,6 +206,7 @@ class Document:
     evidence: Any = None
     captured_at: str | None = None
     raw_text: str = field(default="", repr=False)
+    retrieval: dict[str, Any] = field(default_factory=dict)
 
     def excerpt(self, limit: int = 240) -> str:
         text = " ".join((self.content or "").split())
@@ -180,6 +234,8 @@ class Document:
             payload["evidence"] = self.evidence
         if self.captured_at:
             payload["captured_at"] = self.captured_at
+        if self.retrieval:
+            payload["retrieval"] = dict(self.retrieval)
         return payload
 
 
@@ -187,20 +243,38 @@ def meta_path(markdown_path: Path) -> Path:
     return markdown_path.with_suffix(".meta.json")
 
 
-def load_document(path: Path, *, layer: str, root: Path | None = None) -> Document:
-    text = path.read_text(encoding="utf-8")
-    title, content = parse_markdown(text)
-    rel = relative_posix(path, root)
-    rel_slug = rel[:-3] if rel.lower().endswith(".md") else rel
+def read_bounded(path: Path, limit: int) -> bytes:
+    """Bound actual reads even if a file grows after a directory observation."""
+    with path.open("rb") as stream:
+        raw = stream.read(max(0, limit) + 1)
+    if len(raw) > limit:
+        raise ValueError(f"reference source exceeds the {limit}-byte read budget")
+    return raw
+
+
+def load_document(path: Path, *, layer: str, root: Path | None = None,
+                  max_bytes: int | None = None, max_metadata_bytes: int | None = None) -> Document:
+    text = path.read_text(encoding="utf-8") if max_bytes is None else read_bounded(path, max_bytes).decode("utf-8")
     meta: dict[str, Any] = {}
     sidecar = meta_path(path)
     if sidecar.is_file():
         try:
-            loaded = json.loads(sidecar.read_text(encoding="utf-8"))
+            encoded = sidecar.read_text(encoding="utf-8") if max_metadata_bytes is None else read_bounded(sidecar, max_metadata_bytes).decode("utf-8")
+            loaded = json.loads(encoded)
         except (OSError, json.JSONDecodeError):
             loaded = {}
         if isinstance(loaded, Mapping):
             meta = dict(loaded)
+    return document_from_text(text, path=path, layer=layer, root=root, metadata=meta)
+
+
+def document_from_text(text: str, *, path: Path, layer: str, root: Path | None = None,
+                       metadata: Mapping[str, Any] | None = None) -> Document:
+    """Parse an already observed snapshot without reading its source again."""
+    title, content = parse_markdown(text)
+    rel = relative_posix(path, root)
+    rel_slug = rel[:-3] if rel.lower().endswith(".md") else rel
+    meta = dict(metadata or {})
     conditions: dict[str, str] = {}
     raw_conditions = meta.get("conditions") if isinstance(meta.get("conditions"), Mapping) else {}
     for key, value in raw_conditions.items():
@@ -223,6 +297,7 @@ def load_document(path: Path, *, layer: str, root: Path | None = None) -> Docume
         evidence=meta.get("evidence"),
         captured_at=meta.get("captured_at") if isinstance(meta.get("captured_at"), str) else None,
         raw_text=text,
+        retrieval=retrieval_metadata(meta.get("retrieval"), text),
     )
 
 
@@ -260,6 +335,7 @@ def save_document(
     conditions: Mapping[str, Any] | None = None,
     evidence: Any = None,
     captured_at: str | None = None,
+    retrieval: Mapping[str, Any] | None = None,
 ) -> Document:
     heading = (title or "").strip()
     body = (content or "").strip()
@@ -320,6 +396,8 @@ def save_document(
             meta.pop("conditions", None)
     if evidence is not None:
         meta["evidence"] = evidence
+    if retrieval is not None:
+        meta["retrieval"] = dict(retrieval)
     _atomic_write_text(meta_path(target), json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
     return load_document(target, layer=layer, root=root)
 

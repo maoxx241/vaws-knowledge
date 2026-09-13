@@ -44,7 +44,7 @@ def test_worklist_failure_does_not_change_index_readiness(tmp_path, monkeypatch)
     assert "cache unavailable" in report["health"]["reason"]
 
 
-def test_health_deadline_is_reused_but_capture_wakeup_refreshes(tmp_path, monkeypatch):
+def test_health_deadline_is_reused_even_when_capture_wakes_incremental_refresh(tmp_path, monkeypatch):
     config, root, _path = setup(tmp_path)
     (root / "one.md").write_text("# Observation\n\nSource retained.", encoding="utf-8")
     health = Mock(return_value={"status": "ok", "findings": [], "snapshot": "observed"})
@@ -55,4 +55,7 @@ def test_health_deadline_is_reused_but_capture_wakeup_refreshes(tmp_path, monkey
     assert maintain(config)["ready"]
     assert health.call_count == 1
     assert maintain(config, force=True)["ready"]
+    assert health.call_count == 1
+    monkeypatch.setattr("vaws_knowledge.maintenance.time.time", lambda: initial["next_health"] + 1)
+    assert maintain(config)["ready"]
     assert health.call_count == 2

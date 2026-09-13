@@ -123,6 +123,40 @@ def test_reader_connects_without_creating_namespaces_or_waiting_for_maintenance(
     assert not any(call[0] in {"write", "mkdir", "wait"} for call in clients[0].calls)
 
 
+def test_warm_reader_does_not_repeat_process_ownership_probe(native, monkeypatch):
+    backend, instance, records, vectors, clients = native
+    instance.live = True
+    assert backend.ready()[0]
+    def unexpected_probe():
+        raise AssertionError("warm query must not inspect process ownership")
+    monkeypatch.setattr(instance, "describe", unexpected_probe)
+    assert backend.ready()[0]
+    assert backend.search("HCCL", layers=["project"]) == []
+    assert backend.read("viking://resources/project/missing.md") is None
+    assert len(clients) == 1
+    assert instance.starts == 0
+
+
+def test_reader_failure_is_returned_once_and_next_request_reconnects(native):
+    backend, instance, records, vectors, clients = native
+    instance.live = True
+    assert backend.ready()[0]
+    failed = clients[0]
+    attempts = []
+    def offline(*args, **kwargs):
+        attempts.append(1)
+        raise TimeoutError("engine restarted")
+    failed.find = offline
+    with pytest.raises(TimeoutError, match="engine restarted"):
+        backend.search("ACL Graph", layers=["project"])
+    assert len(attempts) == 1
+    assert ("close",) in failed.calls
+    assert backend.ready()[0]
+    assert len(clients) == 2
+    assert backend.search("ACL Graph", layers=["project"]) == []
+    assert instance.starts == 0
+
+
 def test_native_content_does_not_prove_its_vector_exists(native):
     backend, instance, records, vectors, clients = native
     uri = "viking://resources/project/note.md"

@@ -18,6 +18,98 @@ from vaws_knowledge.server.query import query
 
 
 class Maintenance(unittest.TestCase):
+    def test_missing_or_corrupt_shared_pointer_preserves_catalog_and_reports_partial(self):
+        from dataclasses import replace
+        from vaws_knowledge.catalog import get_catalog_document, refresh_catalog
+        from vaws_knowledge.maintenance import refresh_references
+        from vaws_knowledge.markdown import load_document
+        for damaged in (False, True):
+            with self.subTest(damaged=damaged), tempfile.TemporaryDirectory() as tmp:
+                config = self.config(Path(tmp))
+                self.assertTrue(maintain(config, verify=True)["ready"])
+                uri = "viking://resources/shared/v123456789abc/fact.md"
+                doc = replace(load_document(Path(tmp) / "notes" / "fact.md", layer="shared"), uri=uri)
+                refresh_catalog(config, extra_documents=[doc])
+                identity = {"root_uri": "viking://resources/shared/v123456789abc"}
+                if damaged:
+                    pointer = config.state_root / "distribution" / "current.json"
+                    pointer.parent.mkdir(parents=True, exist_ok=True)
+                    pointer.write_text("{damaged", encoding="utf-8")
+                result = refresh_references(config, {"shared_identity": identity}, verify=True)
+                self.assertEqual("partial", result["status"])
+                self.assertEqual(identity, result["shared_identity"])
+                self.assertIsNotNone(get_catalog_document(config, uri))
+                receipt = config.state_root / "maintenance.json"
+                previous = json.loads(receipt.read_text())
+                previous["catalog"] = result
+                receipt.write_text(json.dumps(previous), encoding="utf-8")
+                retried = maintain(config, force=True)
+                self.assertFalse(retried["ready"])
+                self.assertEqual("partial", retried["catalog"]["status"])
+                self.assertTrue(query(config, text="maintenancecanary").degraded)
+
+    def test_unchanged_pass_reuses_vectors_and_changed_delta_reads_only_changed_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = self.config(Path(tmp))
+            self.assertTrue(maintain(config, verify=True)["ready"])
+            with patch("vaws_knowledge.local.reconcile._scan_documents", side_effect=AssertionError("full scan")):
+                again = maintain(config, force=True)
+                self.assertTrue(again["local"]["reused"])
+                self.assertEqual(0, again["catalog"]["read_bytes"])
+                (Path(tmp) / "notes" / "fact.md").write_text("# Updated\n\nDelta fact\n", encoding="utf-8")
+                changed = maintain(config, force=True)
+                self.assertTrue(changed["ready"], changed)
+                self.assertEqual(1, changed["local"]["upserted"])
+                (Path(tmp) / "notes" / "fact.md").unlink()
+                deleted = maintain(config, force=True)
+                self.assertEqual(1, deleted["local"]["deleted"])
+                self.assertFalse(config.retrieval.documents)
+
+    def test_explicit_catalog_refresh_and_failed_write_do_not_lose_vector_changes(self):
+        from vaws_knowledge.catalog import refresh_catalog
+        with tempfile.TemporaryDirectory() as tmp:
+            config = self.config(Path(tmp))
+            self.assertTrue(maintain(config, verify=True)["ready"])
+            note = Path(tmp) / "notes" / "fact.md"
+            note.write_text("# Changed\n\nNew independent refresh\n", encoding="utf-8")
+            refresh_catalog(config)
+            with patch.object(config.retrieval, "upsert", side_effect=RuntimeError("offline")):
+                self.assertFalse(maintain(config, force=True)["local_ready"])
+            retried = maintain(config, force=True)
+            self.assertTrue(retried["ready"], retried)
+            self.assertEqual(1, retried["local"]["upserted"])
+            self.assertIn("New independent refresh", next(iter(config.retrieval.documents.values()))["content"])
+
+    def test_recreated_catalog_generation_cannot_hide_changes_or_missing_ledger(self):
+        from vaws_knowledge.catalog import catalog_path
+        with tempfile.TemporaryDirectory() as tmp:
+            config = self.config(Path(tmp))
+            self.assertTrue(maintain(config, verify=True)["ready"])
+            catalog_path(config).unlink()
+            (Path(tmp) / "notes" / "fact.md").write_text("# Rebuilt\n\nNew body\n", encoding="utf-8")
+            rebuilt = maintain(config, force=True)
+            self.assertTrue(rebuilt["ready"], rebuilt)
+            self.assertEqual(1, rebuilt["local"]["upserted"])
+            (config.state_root / "markdown-index.json").unlink()
+            config.retrieval.documents.clear()
+            self.assertEqual(1, maintain(config, force=True)["local"]["upserted"])
+
+    def test_release_transport_local_edit_is_reconciled_before_snapshot_advances(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = self.config(Path(tmp))
+            self.assertTrue(maintain(config, verify=True)["ready"])
+            def switched(*args, **kwargs):
+                (Path(tmp) / "notes" / "fact.md").write_text("# Changed during download\n\nKeep current local facts\n", encoding="utf-8")
+                return {"sync": {"status": "switched"}}
+            with patch("vaws_knowledge.publishing.run_once", side_effect=switched), \
+                    patch("vaws_knowledge.local.reconcile._scan_documents", side_effect=AssertionError("unexpected full scan")):
+                changed = maintain(config, force=True)
+            self.assertTrue(changed["ready"], changed)
+            self.assertEqual(changed["catalog"]["snapshot"], changed["local_snapshot"])
+            self.assertIn("Keep current local facts", next(iter(config.retrieval.documents.values()))["content"])
+            with patch("vaws_knowledge.local.reconcile._scan_documents", side_effect=AssertionError("unexpected next full scan")):
+                self.assertTrue(maintain(config, force=True)["local"]["reused"])
+
     def config(self, root):
         notes = root / "notes"
         notes.mkdir()
