@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vaws-knowledge"
-version = "0.6.0"
+version = "0.7.0"
 description = "Local Markdown knowledge indexed through OpenViking"
 readme = "README.md"
 license = "MIT"
@@ -20,7 +20,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=8,<10"]
+test = ["pytest>=8,<10", "tree-sitter==0.25.2", "tree-sitter-cpp==0.23.4"]
+code = ["tree-sitter==0.25.2", "tree-sitter-cpp==0.23.4"]
 
 [project.scripts]
 vaws-knowledge = "vaws_knowledge.cli:main"

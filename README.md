@@ -81,6 +81,23 @@ differences without prescribing a required workflow. Install it for native
 discovery with `vaws-knowledge skill --install-dir <client-skill-directory>`.
 Ordinary lookup, capture and task completion need no skill.
 
+Maintainers can use `catalog`, `evaluate`, `code-map`, `relations`, `curation`
+and `curation-export`; each has `--help`. These are explicit maintenance
+commands, outside the MCP tool list. Full maps, evaluation details and change
+history remain private artifacts; command output stays bounded. Python maps
+use the standard AST. Install `.[code]` only for optional C++ tree-sitter
+extraction. Static links identify definitions and registrations, with unresolved
+dynamic calls labelled; they do not establish runtime behavior or replace a
+client's code index. See [code maps](vaws_knowledge/code_map/README.md).
+
+Independent agents, preferably Grok Bot, can maintain VA/NPU/AI/infra topics,
+PR cases, aliases and cross-task digests from selected sources. Curation accepts
+ordinary Markdown, checks the observed source/target snapshots, and keeps
+reversible history. Public export produces a separate hash-verified generation
+using the existing pattern-based redaction profile; it is intended for selected
+public sources, not unrestricted private material. See
+[independent maintenance](vaws_knowledge/skills/curate-knowledge/references/independent-maintenance.md).
+
 ## Public contribution and shared updates
 
 Public sharing follows existing authorization and configuration. The package
