@@ -293,7 +293,8 @@ class SharedReferenceRoundTrip(unittest.TestCase):
             self.assertNotIn("shared", config.absent_layers())
             found, error = service.call_tool("knowledge_query", {"text": "packcanary"})
             self.assertFalse(error, found)
-            self.assertFalse(found["degraded"], found)
+            self.assertTrue(found["incomplete"], found)  # No lexical catalog has been prepared.
+            self.assertFalse(found["unavailable"], found)
             self.assertEqual([ref], [item["ref"] for item in found["results"]])
             original, error = service.call_tool("knowledge_explain", {"ref": ref})
             self.assertFalse(error, original)

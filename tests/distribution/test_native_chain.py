@@ -40,6 +40,8 @@ from vaws_knowledge.distribution import (  # noqa: E402
     make_release,
 )
 from vaws_knowledge.distribution.manifest import EMBEDDING_MODEL  # noqa: E402
+from vaws_knowledge.distribution.references import prepared_shared_documents  # noqa: E402
+from vaws_knowledge.markdown import normalized_sha256  # noqa: E402
 
 MODEL_CACHE = os.environ.get("VAWS_DIST_TEST_MODEL_CACHE", "")
 SERVER_BIN = os.environ.get("VAWS_DIST_TEST_OPENVIKING_SERVER", "")
@@ -296,7 +298,9 @@ def test_native_build_release_sync_chain(tmp_path):
 
         # v1: fixed Git content -> dense OVPack -> local release.
         repo = tmp_path / "corpus-repo"
-        sha1 = _commit_corpus(repo, CORPUS_V1)
+        sha1 = _commit_corpus(repo, {**CORPUS_V1, "zh/graph-launch.meta.json": json.dumps({"retrieval": {
+            "source_sha256": normalized_sha256(CORPUS_V1["zh/graph-launch.md"]),
+            "aliases": ["ACLGraph reservation incident"], "topics": ["ascend"]}})})
         build1 = build_pack(
             repo=repo,
             out_dir=tmp_path / "build1",
@@ -331,6 +335,20 @@ def test_native_build_release_sync_chain(tmp_path):
         current1 = current_shared(state_root)
         assert current1 and current1["source_git_sha"] == sha1
         root1 = current1["root_uri"]
+        prepared1 = list(prepared_shared_documents(state_root, current=current1))
+        graph1 = next(doc for doc in prepared1 if doc.uri.endswith("graph-launch.md"))
+        assert graph1.retrieval["aliases"] == ["ACLGraph reservation incident"]
+        assert graph1.retrieval["topics"] == ["ascend"]
+        from vaws_knowledge.catalog import refresh_catalog, search_catalog
+        from vaws_knowledge.server.layers import load_config
+        bootstrap = tmp_path / "bootstrap"
+        bootstrap.mkdir()
+        config = load_config({"state_root": str(state_root), "backend": "memory", "layers": {
+            "shared": str(bootstrap), "project": {"enabled": False}, "candidate": {"enabled": False}}}, env={})
+        assert refresh_catalog(config, extra_documents=prepared1)["status"] == "ready"
+        alias_hits = search_catalog(config, "ACLGraph reservation incident", layers=["shared"],
+                                    selection={"topics": ["ascend"], "mode": "only"})
+        assert alias_hits.hits and alias_hits.hits[0].uri == graph1.uri
 
         hits = target.find(
             "图模式启动", target_uri=root1, limit=3, options={"level": 2, "read_content": False}
@@ -351,7 +369,9 @@ def test_native_build_release_sync_chain(tmp_path):
         )
 
         # v2: one doc modified, one deleted, one added upstream.
-        sha2 = _commit_corpus(repo, CORPUS_V2)
+        sha2 = _commit_corpus(repo, {**CORPUS_V2, "zh/graph-launch.meta.json": json.dumps({"retrieval": {
+            "source_sha256": normalized_sha256(CORPUS_V2["zh/graph-launch.md"]),
+            "aliases": ["compile cache headroom"], "topics": ["ascend"]}})})
         assert sha2 != sha1
         build2 = build_pack(
             repo=repo,
@@ -377,6 +397,15 @@ def test_native_build_release_sync_chain(tmp_path):
         assert current2 and current2["source_git_sha"] == sha2
         root2 = current2["root_uri"]
         assert root2 != root1
+        # A pointer switch never exposes old-version enrichment under the new
+        # active source, including the interval before catalog maintenance.
+        assert not search_catalog(config, "ACLGraph reservation incident", layers=["shared"]).hits
+        prepared2 = list(prepared_shared_documents(state_root, current=current2))
+        assert refresh_catalog(config, extra_documents=prepared2)["status"] == "ready"
+        alias_hits = search_catalog(config, "compile cache headroom", layers=["shared"],
+                                    selection={"topics": ["ascend"], "mode": "only"})
+        assert alias_hits.hits and alias_hits.hits[0].uri == root2 + "/zh/graph-launch.md"
+        assert all(not doc.uri.endswith("benchmark-warmup.md") for doc in prepared2)
 
         updated = target.read(f"{root2}/zh/graph-launch.md")
         assert "编译缓存目录" in updated

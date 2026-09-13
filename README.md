@@ -25,8 +25,8 @@ vaws-knowledge prepare --project /path/to/project
 vaws-knowledge server --config /path/to/project/.vaws-local/knowledge/service.json
 ```
 
-Workspace installation calls `prepare` automatically. It prepares the CPU model,
-bundled notes and indexes before reporting readiness. After a valid query or
+Explicit `prepare` prepares the CPU model, bundled notes and indexes before
+reporting readiness. Dependency installation alone need not prepare knowledge. After a valid query or
 successful MCP capture, the service maintains them in the background. Connecting,
 listing tools, pinging and closing an unused provider do not start maintenance,
 create a retrieval backend, or contact the network. A standalone installation can use the same command;
@@ -116,6 +116,25 @@ Markdown. Exact code identifiers and Chinese text remain searchable while the
 vector service is pending; the result still reports degraded/unavailable when
 that route fails. Each source URI contributes once per route. Relevance scores
 are reciprocal ranks, not truth or applicability confidence.
+
+Lexical queries reuse a rebuildable SQLite catalog and validate only bounded
+selected originals. Maintenance scans file metadata, reparses changed bodies,
+and reuses unchanged vectors. Large-library maintenance lengthens its interval
+according to the last pass's cost. A missing catalog uses a bounded, explicitly
+incomplete fallback; a query never rebuilds it or imports sources.
+Hash-bound aliases and topics can be prepared independently. An edited source
+invalidates its old enrichment. Optional `selection.prefer` topics choose useful
+references; `topic:graph` narrows a query and `all-topics` bypasses that preference.
+Results preserve heading/condition context, tables and fenced source spans
+within one total excerpt budget. The original remains available through explain.
+
+Shared releases transport public Markdown and permitted reference metadata
+alongside the existing vector pack, with hashes and one source revision. They
+switch together; incomplete imports retain the previous release. See the
+[reference asset contract](vaws_knowledge/distribution/REFERENCES.md) and
+[catalog and retrieval measurements](tests/performance/README.md). Offline
+evaluation fixtures check ranking and citation positions; those synthetic
+results are regression evidence, not measured quality on unlabelled user tasks.
 
 Hits include a matching source window, one-based Markdown lines, clipping
 information, and the SHA256 of UTF-8 text with normalized newlines. Shared-pack

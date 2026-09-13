@@ -40,6 +40,10 @@ def current_shared(state_root: Path | None) -> dict[str, Any] | None:
                 "source_git_sha": payload.get("source_git_sha"),
                 "root_uri": payload.get("root_uri"),
                 "manifest_path": payload.get("manifest_path"),
+                "prepared_root": payload.get("prepared_root"),
+                "references_sha256": payload.get("references_sha256"),
+                "metadata_status": payload.get("metadata_status"),
+                "prepared_manifest_sha256": payload.get("prepared_manifest_sha256"),
             }
     path = root / "shared" / "current.json"
     if not path.is_file():
@@ -54,6 +58,10 @@ def current_shared(state_root: Path | None) -> dict[str, Any] | None:
         "source_git_sha": data.get("source_git_sha"),
         "root_uri": data.get("root_uri"),
         "manifest_path": data.get("manifest_path"),
+        "prepared_root": data.get("prepared_root"),
+        "references_sha256": data.get("references_sha256"),
+        "metadata_status": data.get("metadata_status"),
+        "prepared_manifest_sha256": data.get("prepared_manifest_sha256"),
     }
 
 

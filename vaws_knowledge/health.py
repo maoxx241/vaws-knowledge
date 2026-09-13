@@ -21,7 +21,7 @@ from urllib.parse import unquote, urlsplit
 from vaws_knowledge.distribution.errors import SwitchInProgress
 from vaws_knowledge.distribution.manifest import atomic_write_json, read_json
 from vaws_knowledge.distribution.sync import SwitchLock
-from vaws_knowledge.markdown import LAYERS, meta_path, parse_markdown, uri_for
+from vaws_knowledge.markdown import LAYERS, MAX_REFERENCE_BYTES, MAX_METADATA_BYTES, meta_path, parse_markdown, read_bounded, uri_for
 from vaws_knowledge.server.layers import ServiceConfig
 
 CACHE_NAME = "knowledge-health.json"
@@ -240,9 +240,9 @@ def _inspect(config: ServiceConfig, cache_path: Path | None, age: int, now: floa
                 try:
                     if not _inside(path, root) or not _inside(meta_path(path), root):
                         raise ValueError("note or sidecar resolves outside its mounted directory")
-                    raw = path.read_bytes()
+                    raw = read_bounded(path, MAX_REFERENCE_BYTES)
                     sidecar = meta_path(path)
-                    metadata = sidecar.read_bytes() if sidecar.is_file() else b""
+                    metadata = read_bounded(sidecar, MAX_METADATA_BYTES) if sidecar.is_file() else b""
                     modified = path.stat().st_mtime
                     fingerprint = _digest([hashlib.sha256(raw).hexdigest(), hashlib.sha256(metadata).hexdigest(), modified])
                     old = old_records.get(key, {})
@@ -297,7 +297,7 @@ def _inspect(config: ServiceConfig, cache_path: Path | None, age: int, now: floa
                     source_digests[target] = _file_digest(target)
                 source_digest = source_digests[target]
                 snapshot.append([str(target), source_digest])
-            except OSError as exc:
+            except (OSError, ValueError) as exc:
                 unknown("linked_source_unavailable", target, str(exc), ref=ref, link=link)
                 continue
             observed = baseline.setdefault(link, source_digest)
@@ -329,11 +329,7 @@ def _inspect(config: ServiceConfig, cache_path: Path | None, age: int, now: floa
 
 
 def _file_digest(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return hashlib.sha256(read_bounded(path, MAX_REFERENCE_BYTES)).hexdigest()
 
 
 def _markdown_paths(root: Path) -> list[Path]:

@@ -18,7 +18,8 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from vaws_knowledge.local.backend import backend_for_config
-from vaws_knowledge.markdown import Document, URI_ROOT, iter_markdown_files, load_document, relative_posix, uri_for
+from vaws_knowledge.markdown import (Document, URI_ROOT, MAX_REFERENCE_BYTES, MAX_METADATA_BYTES,
+                                     iter_markdown_files, load_document, read_bounded, relative_posix, uri_for)
 from vaws_knowledge.local.instance import InstanceLock
 
 INDEX_LAYERS = ("shared", "project", "candidate")
@@ -167,7 +168,8 @@ def _scan_documents(
                 try:
                     if not _under_roots(path, (base,)):
                         raise ValueError("document resolves outside its mounted source directory")
-                    document = load_document(path, layer=layer, root=base)
+                    document = load_document(path, layer=layer, root=base, max_bytes=MAX_REFERENCE_BYTES,
+                                             max_metadata_bytes=MAX_METADATA_BYTES)
                     canonical = uri_for(layer, relative_posix(path, base))
                     if document.uri != canonical:
                         raise ValueError("document URI is outside its mounted source identity")
@@ -214,6 +216,7 @@ def _owned_record_uri(uri: str, layer: str, path: Path, roots: Sequence[Path]) -
 
 def reconcile_markdown(
     config: Any, layers: Sequence[str] | None = None, *, verify: bool = False,
+    changed_uris: Sequence[str] | None = None, deleted_uris: Sequence[str] = (),
 ) -> ReconcileReport:
     """Apply local changes; optionally verify and repair every stored document.
 
@@ -234,13 +237,33 @@ def reconcile_markdown(
         return report
 
     with _state_lock(config):
-        return _reconcile(config, wanted, backend, report, verify=verify)
+        return _reconcile(config, wanted, backend, report, verify=verify,
+                          changed_uris=None if verify else changed_uris, deleted_uris=deleted_uris)
 
 
 def _reconcile(
     config: Any, wanted: Sequence[str], backend: Any, report: ReconcileReport, *, verify: bool,
+    changed_uris: Sequence[str] | None = None, deleted_uris: Sequence[str] = (),
 ) -> ReconcileReport:
-    current, readable_roots = _scan_documents(config, wanted, report)
+    if changed_uris is None:
+        current, readable_roots = _scan_documents(config, wanted, report)
+    else:
+        # The maintenance owner supplies a continuous catalog delta only after
+        # matching its last successful vector snapshot and ledger identity.
+        from vaws_knowledge.catalog import get_catalog_documents
+
+        current = get_catalog_documents(config, changed_uris, layers=wanted)
+        missing = set(changed_uris) - current.keys()
+        if missing:
+            report.ok = False
+            report.errors.append(f"catalog delta has {len(missing)} unavailable documents; full reconciliation required")
+        readable_roots = [root for root in _mount_roots(config, wanted) if root.is_dir()]
+        for uri, document in list(current.items()):
+            roots = config.mount(document.layer).roots
+            if not _owned_record_uri(uri, document.layer, document.path, roots):
+                report.ok = False
+                report.errors.append(f"{uri}: catalog path is outside its mounted source identity")
+                current.pop(uri)
     state = _load_state(config)
     recorded: dict[str, Any] = state.setdefault("documents", {})
     fingerprint_contract = dict(backend.index_fingerprint())
@@ -249,10 +272,10 @@ def _reconcile(
 
     for uri, document in current.items():
         try:
-            raw = document.path.read_bytes()
+            raw = read_bounded(document.path, MAX_REFERENCE_BYTES)
             fingerprint = hashlib.sha256(raw).hexdigest()
             content = raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
-        except (OSError, UnicodeDecodeError) as exc:
+        except (OSError, UnicodeDecodeError, ValueError) as exc:
             report.ok = False
             report.errors.append(f"{document.path}: {exc}")
             continue
@@ -295,7 +318,7 @@ def _reconcile(
             report.repaired += 1
         completed.add(uri)
 
-    for uri in list(recorded):
+    for uri in list(recorded) if changed_uris is None else list(deleted_uris):
         record = recorded.get(uri)
         if not isinstance(record, dict):
             recorded.pop(uri, None)

@@ -33,6 +33,11 @@ class ReleaseSnapshot:
     pack_path: Path
     label: str
 
+    @property
+    def references_path(self) -> Path | None:
+        spec = self.manifest.data.get("references")
+        return self.pack_path.parent / spec["file"] if spec else None
+
 
 class ReleaseSource(Protocol):
     def fetch(self) -> ReleaseSnapshot: ...
@@ -63,6 +68,8 @@ class LocalReleaseSource:
             raise SourceUnavailable(
                 f"release asset {pack_path.name} is missing from {directory}"
             )
+        if manifest.data.get("references") and not (directory / manifest.data["references"]["file"]).is_file():
+            raise SourceUnavailable("release reference metadata asset is missing")
         return ReleaseSnapshot(manifest=manifest, pack_path=pack_path, label=str(directory))
 
 
@@ -117,6 +124,14 @@ def make_release(
         shutil.copyfile(pack_path, target)
     if sha256_file(target) != manifest.pack["sha256"]:
         raise ReleaseError(f"copied pack {target} failed its checksum; remove and retry")
+    if manifest.data.get("references"):
+        from vaws_knowledge.distribution.references import verify_references
+        source = pack_path.parent / manifest.data["references"]["file"]
+        verify_references(source, manifest, pack_path=pack_path)
+        reference_target = out_dir / source.name
+        if source.resolve() != reference_target.resolve():
+            shutil.copyfile(source, reference_target)
+        verify_references(reference_target, manifest, pack_path=target)
     atomic_write_json(out_dir / RELEASE_MANIFEST_NAME, manifest.data)
     return out_dir
 
@@ -129,6 +144,9 @@ def publish_release(directory: Path, *, repository: str) -> dict[str, Any]:
     repository = repository_name(repository)
     snapshot = LocalReleaseSource(directory).fetch()
     verify_pack(snapshot.pack_path, snapshot.manifest, expected=ExpectedContract())
+    if snapshot.references_path is not None:
+        from vaws_knowledge.distribution.references import verify_references
+        verify_references(snapshot.references_path, snapshot.manifest, pack_path=snapshot.pack_path)
     sha = snapshot.manifest.source_git_sha
     tag = f"knowledge-{snapshot.manifest.version_id}"
     tag_ref = gh(["api", f"repos/{repository}/git/ref/tags/{tag}"], check=False)
@@ -154,8 +172,10 @@ def publish_release(directory: Path, *, repository: str) -> dict[str, Any]:
     else:
         gh(["release", "create", tag, "--repo", repository, "--target", sha,
             "--title", f"Knowledge {sha[:12]}", "--notes", f"Reviewed corpus commit: {sha}", "--draft"])
-    gh(["release", "upload", tag, str(Path(directory) / RELEASE_MANIFEST_NAME),
-        str(snapshot.pack_path), "--repo", repository, "--clobber"], timeout=600)
+    assets = [str(Path(directory) / RELEASE_MANIFEST_NAME), str(snapshot.pack_path)]
+    if snapshot.references_path is not None:
+        assets.append(str(snapshot.references_path))
+    gh(["release", "upload", tag, *assets, "--repo", repository, "--clobber"], timeout=600)
     # Recheck the tag before making the complete draft visible to clients.
     actual = api(f"repos/{repository}/git/ref/tags/{tag}")
     if actual.get("object", {}).get("sha") != sha:
@@ -260,6 +280,13 @@ class GitHubReleaseSource:
                 self._download(assets[pack.name], pack, maximum=size)
             if pack.stat().st_size != size or sha256_file(pack) != manifest.pack["sha256"]:
                 raise SourceUnavailable("downloaded release pack failed its integrity check")
+            if manifest.data.get("references"):
+                spec = manifest.data["references"]
+                reference = directory / spec["file"]
+                if not reference.is_file() or sha256_file(reference) != spec["sha256"]:
+                    self._download(assets[reference.name], reference, maximum=spec["size"])
+                from vaws_knowledge.distribution.references import verify_references
+                verify_references(reference, manifest, pack_path=pack)
             return ReleaseSnapshot(manifest, pack, str(release.get("html_url") or self.repository))
         except SourceUnavailable:
             raise

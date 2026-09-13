@@ -132,6 +132,10 @@ class ServiceConfig:
     retrieval: Any = None
     publishing: dict[str, Any] = field(default_factory=dict)
     shared_sync: dict[str, Any] = field(default_factory=dict)
+    catalog_options: dict[str, Any] = field(default_factory=dict)
+    selection: dict[str, Any] = field(default_factory=dict)
+    sources: list[Any] = field(default_factory=list)
+    curation: dict[str, Any] = field(default_factory=dict)
 
     def mount(self, layer: str) -> Mount:
         return self.mounts.get(layer, Mount(layer=layer, absent_reason="unknown layer"))
@@ -509,4 +513,8 @@ def load_config(
         state_root=state_root,
         publishing=dict(data["publishing"]) if isinstance(data.get("publishing"), Mapping) else {},
         shared_sync=dict(data["shared_sync"]) if isinstance(data.get("shared_sync"), Mapping) else {},
+        catalog_options=dict(data["catalog"]) if isinstance(data.get("catalog"), Mapping) else {},
+        selection=dict(data["selection"]) if isinstance(data.get("selection"), Mapping) else {},
+        sources=list(data["sources"]) if isinstance(data.get("sources"), list) else [],
+        curation=dict(data["curation"]) if isinstance(data.get("curation"), Mapping) else {},
     )

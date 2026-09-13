@@ -9,13 +9,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+import os
+import time
 from typing import Any, Sequence
 
 from vaws_knowledge import package_version
 from vaws_knowledge.local.backend import Hit, backend_for_config
 from vaws_knowledge.local.instance import instance_for_config
 from vaws_knowledge.local.shared import current_shared
-from vaws_knowledge.markdown import Document, iter_markdown_files, layer_from_uri, load_document, parse_markdown, relative_posix, uri_for
+from vaws_knowledge.markdown import Document, MAX_METADATA_BYTES, MAX_REFERENCE_BYTES, iter_markdown_files, layer_from_uri, load_document, normalized_sha256, parse_markdown, relative_posix, uri_for
 from vaws_knowledge.retrieval import fuse, lexical_search, source_excerpt
 from vaws_knowledge.server.layers import LAYERS, ServiceConfig, shared_source
 
@@ -30,8 +32,11 @@ REFERENCE_NOTE = (
     "prove hardware facts."
 )
 
-def load_layer_documents(config: ServiceConfig, layers: Sequence[str], *, errors: list[str] | None = None) -> list[Document]:
+def load_layer_documents(config: ServiceConfig, layers: Sequence[str], *, errors: list[str] | None = None,
+                         max_documents: int | None = None, max_bytes: int | None = None,
+                         time_budget_ms: float | None = None) -> list[Document]:
     documents: list[Document] = []
+    started, read_bytes = time.perf_counter(), 0
     for layer in layers:
         mount = config.mount(layer)
         if not mount.present:
@@ -43,19 +48,31 @@ def load_layer_documents(config: ServiceConfig, layers: Sequence[str], *, errors
                     if layer == "candidate" and not base.exists():
                         continue
                     raise OSError("mounted source directory is unavailable")
-                paths = iter_markdown_files(base)
+                if max_documents is None:
+                    paths = iter_markdown_files(base)
+                else:
+                    paths = (Path(directory) / name for directory, _, names in os.walk(base, followlinks=False)
+                             for name in names if name.endswith(".md"))
             except OSError as exc:
                 if errors is not None:
                     errors.append(f"{base}: {exc}")
                 continue
             for path in paths:
                 try:
+                    if ((max_documents is not None and len(documents) >= max_documents)
+                            or (max_bytes is not None and read_bytes + path.stat().st_size > max_bytes)
+                            or (time_budget_ms is not None and (time.perf_counter() - started) * 1000 >= time_budget_ms)):
+                        if errors is not None:
+                            errors.append("bounded fallback stopped at its document, byte or time budget")
+                        return documents
                     path.resolve().relative_to(base.resolve())
                     path.with_suffix(".meta.json").resolve().relative_to(base.resolve())
-                    document = load_document(path, layer=layer, root=base)
+                    document = load_document(path, layer=layer, root=base, max_bytes=MAX_REFERENCE_BYTES,
+                                             max_metadata_bytes=MAX_METADATA_BYTES)
                     if document.uri != uri_for(layer, relative_posix(path, base)):
                         raise ValueError("document identity disagrees with mounted source")
                     documents.append(document)
+                    read_bytes += path.stat().st_size
                 except (OSError, UnicodeDecodeError, ValueError) as exc:
                     if errors is not None:
                         errors.append(f"{path}: {exc}")
@@ -78,6 +95,9 @@ class QueryResponse:
     layers_available: list[str] = field(default_factory=list)
     layers_absent: dict[str, str] = field(default_factory=dict)
     inspected: int = 0
+    incomplete: bool = False
+    catalog_snapshot: str | int | None = None
+    source_reads: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         payload = {
@@ -92,6 +112,9 @@ class QueryResponse:
             "count": len(self.results),
             "score_kind": "reciprocal_rank_fusion",
             "inspected": self.inspected,
+            "incomplete": self.incomplete,
+            "catalog_snapshot": self.catalog_snapshot,
+            "source_reads": self.source_reads,
             "notes": list(self.notes),
             "results": list(self.results),
         }
@@ -101,7 +124,7 @@ class QueryResponse:
         return payload
 
 
-def _hit_payload(hit: Hit, document: Document | None, *, text: str = "") -> dict[str, Any]:
+def _hit_payload(hit: Hit, document: Document | None, *, text: str = "", max_chars: int = 600) -> dict[str, Any]:
     title = (document.title if document else None) or hit.title
     excerpt = (document.excerpt() if document else None) or hit.excerpt
     layer = (document.layer if document else None) or hit.layer or layer_from_uri(hit.uri) or ""
@@ -125,9 +148,13 @@ def _hit_payload(hit: Hit, document: Document | None, *, text: str = "") -> dict
         payload["slug"] = document.slug
         if document.captured_at:
             payload["captured_at"] = document.captured_at
+        if document.retrieval.get("topics"):
+            payload["topics"] = document.retrieval["topics"]
+        if document.retrieval.get("ignored"):
+            payload["enrichment_ignored"] = document.retrieval["ignored"]
     raw = document.raw_text if document else hit.content
     if raw:
-        evidence = source_excerpt(raw, text)
+        evidence = source_excerpt(raw, text, max_chars=max_chars)
         evidence.update(source="mounted_markdown" if document else "indexed_shared_snapshot")
         payload["excerpt"] = evidence.pop("text")
         payload["evidence"] = evidence
@@ -140,6 +167,7 @@ def query(
     text: str,
     layers: Sequence[str] | None = None,
     limit: int = 8,
+    selection: dict[str, Any] | None = None,
 ) -> QueryResponse:
     """Search all mounted Markdown by relevance, retaining recorded context."""
 
@@ -167,8 +195,11 @@ def query(
     if pending:
         notes.append("Index maintenance is pending; results may be incomplete. The service retries in the background.")
 
-    fetch = max(int(limit or 8) * 4, 16)
+    cap = min(max(int(limit or 8), 1), 20)
+    fetch = max(cap * 4, 16)
     searched_layers = consulted["layers_available"]
+    active = current_shared(instance_for_config(config).state_root) if "shared" in searched_layers else None
+    active_prefix = str(active["root_uri"]).rstrip("/") + "/" if active else ""
     try:
         hits = backend.search(text, layers=searched_layers, limit=fetch) if ok and searched_layers else []
     except Exception as exc:
@@ -176,12 +207,35 @@ def query(
         ok = False
         detail = f"{type(exc).__name__}: {exc}"
         notes.append("Vector search failed; mounted Markdown is searched lexically. Results may be incomplete.")
+    from vaws_knowledge.catalog import get_catalog_documents, search_catalog, topic_selection
+    clean_text, selected = topic_selection(config, text, selection)
+    requested_topics = selected.get("topics") or []
+    requested_topics = [requested_topics] if isinstance(requested_topics, str) else requested_topics
+    selected_topics = {topic.casefold() for topic in requested_topics if isinstance(topic, str)} if isinstance(requested_topics, list) else set()
+    if selected_topics:
+        request["selection"] = {"topics": sorted(selected_topics), "mode": selected.get("mode", "prefer")}
+    snapshot = search_catalog(config, text, layers=wanted_layers, limit=fetch, selection=selection,
+                              shared_current=active or {})
+    notes.extend(snapshot.notes)
     source_errors: list[str] = []
-    catalog = {document.uri: document for document in load_layer_documents(config, wanted_layers, errors=source_errors)}
-    if source_errors:
-        notes.append(f"{len(source_errors)} source(s) could not be read; lexical results may be incomplete: {source_errors[0]}")
-    active = current_shared(instance_for_config(config).state_root) if "shared" in searched_layers else None
-    active_prefix = str(active["root_uri"]).rstrip("/") + "/" if active else ""
+    catalog = dict(snapshot.documents)
+    if snapshot.available:
+        catalog.update(get_catalog_documents(config, [hit.uri for hit in hits if hit.uri not in catalog], layers=wanted_layers))
+        lexical = snapshot.hits
+    else:
+        options = config.catalog_options
+        fallback = load_layer_documents(config, wanted_layers, errors=source_errors,
+                                        max_documents=min(int(options.get("fallback_documents", 128)), 512),
+                                        max_bytes=min(int(options.get("fallback_bytes", 1048576)), 4194304),
+                                        time_budget_ms=min(float(options.get("fallback_ms", 100)), 500))
+        catalog = {document.uri: document for document in fallback}
+        lexical = lexical_search(clean_text, fallback, limit=fetch)
+        if selected_topics:
+            preferred = lambda doc: bool(selected_topics.intersection(topic.casefold() for topic in doc.retrieval.get("topics", [])))
+            if selected.get("mode") == "only":
+                lexical = [hit for hit in lexical if preferred(catalog[hit.uri])]
+            else:
+                lexical.sort(key=lambda hit: (-hit.score * (1.25 if preferred(catalog[hit.uri]) else 1), hit.uri))
     valid_hits: list[Hit] = []
     for hit in hits:
         document = catalog.get(hit.uri)
@@ -191,19 +245,51 @@ def query(
             continue
         if hit.layer and hit.layer not in searched_layers:
             continue
+        if layer_from_uri(hit.uri) == "shared" and document is not None:
+            from vaws_knowledge.markdown import SHARED_BOOTSTRAP_URI
+            if not hit.uri.startswith(SHARED_BOOTSTRAP_URI + "/") and not (active_prefix and hit.uri.startswith(active_prefix)):
+                continue
+        if selected.get("mode") == "only" and selected_topics:
+            if document is None or not selected_topics.intersection(
+                    str(topic).casefold() for topic in document.retrieval.get("topics", [])):
+                continue
         valid_hits.append(hit)
-    lexical = lexical_search(text, list(catalog.values()), limit=fetch)
     kept: list[dict[str, Any]] = []
+    source_reads = 0
+    text_left = min(max(int(config.catalog_options.get("output_chars", 4800)), 600), 12000)
     for hit, methods in fuse(valid_hits, lexical):
-        item = _hit_payload(hit, catalog.get(hit.uri), text=text)
+        if len(kept) >= cap or text_left <= 0:
+            break
+        document = catalog.get(hit.uri)
+        imported = bool(active_prefix and hit.uri.startswith(active_prefix))
+        if document is not None and (not imported or active.get("prepared_root")):
+            try:
+                current = _read_current(config, document, shared_current=active)
+                source_reads += 1
+                changed = normalized_sha256(current.raw_text) != normalized_sha256(document.raw_text)
+                enrichment_changed = current.retrieval != document.retrieval
+                if changed or enrichment_changed:
+                    source_errors.append(f"{document.path}: source changed since the catalog snapshot")
+                    if methods == ["lexical"] and not lexical_search(clean_text, [current], limit=1):
+                        continue
+                document = current
+            except (OSError, UnicodeError, ValueError) as exc:
+                source_errors.append(f"{hit.uri}: {exc}")
+                continue
+        if selected.get("mode") == "only" and selected_topics:
+            if document is None or not selected_topics.intersection(topic.casefold() for topic in document.retrieval.get("topics", [])):
+                continue
+        item = _hit_payload(hit, document, text=clean_text, max_chars=min(600, text_left))
+        text_left -= len(item.get("excerpt", ""))
         item["retrieval"] = methods
         if hit.uri.startswith(active_prefix) and active_prefix:
             item["source_git_sha"] = active.get("source_git_sha")
         kept.append(item)
-    cap = max(int(limit or 8), 1)
+    if source_errors:
+        notes.append(f"{len(source_errors)} source(s) could not be read or changed; results may be incomplete: {source_errors[0]}")
     return QueryResponse(
         results=kept[:cap],
-        degraded=consulted["degraded"] or pending or not ok or bool(source_errors),
+        degraded=consulted["degraded"] or pending or not ok or bool(source_errors) or snapshot.incomplete,
         unavailable=not ok,
         index_detail=detail,
         notes=notes,
@@ -211,7 +297,38 @@ def query(
         layers_available=consulted["layers_available"],
         layers_absent=consulted["layers_absent"],
         inspected=len(hits),
+        incomplete=snapshot.incomplete or bool(source_errors),
+        catalog_snapshot=snapshot.snapshot,
+        source_reads=source_reads,
     )
+
+
+def _read_current(config: ServiceConfig, document: Document, *, shared_current: dict[str, Any] | None = None) -> Document:
+    if shared_current and shared_current.get("prepared_root"):
+        prefix = str(shared_current["root_uri"]).rstrip("/") + "/"
+        if document.layer == "shared" and document.uri.startswith(prefix):
+            base = Path(shared_current["prepared_root"]).resolve()
+            relative = document.path.resolve().relative_to(base).as_posix()
+            document.path.with_suffix(".meta.json").resolve().relative_to(base)
+            current = load_document(document.path, layer="shared", root=base, max_bytes=MAX_REFERENCE_BYTES,
+                                    max_metadata_bytes=MAX_METADATA_BYTES)
+            current.uri = prefix + relative
+            if current.uri != document.uri:
+                raise ValueError("prepared reference identity disagrees with the active shared source")
+            return current
+    for root in config.mount(document.layer).roots:
+        base = Path(root).resolve()
+        try:
+            document.path.resolve().relative_to(base)
+            document.path.with_suffix(".meta.json").resolve().relative_to(base)
+        except ValueError:
+            continue
+        current = load_document(document.path, layer=document.layer, root=base, max_bytes=MAX_REFERENCE_BYTES,
+                                max_metadata_bytes=MAX_METADATA_BYTES)
+        if current.uri != document.uri:
+            raise ValueError("document identity disagrees with mounted source")
+        return current
+    raise ValueError("document is outside the currently mounted roots")
 
 
 def explain(
@@ -237,7 +354,31 @@ def explain(
     if not ident:
         base.update(found=False, meaning="ref is required")
         return base
-    documents = load_layer_documents(config, wanted_layers)
+    from vaws_knowledge.catalog import get_catalog_document
+    active = current_shared(instance_for_config(config).state_root) if "shared" in consulted["layers_available"] else None
+    candidate = get_catalog_document(config, ident, layers=wanted_layers)
+    if candidate is not None:
+        try:
+            candidate = _read_current(config, candidate, shared_current=active)
+        except (OSError, ValueError, UnicodeError):
+            candidate = None
+    # Direct URI lookup avoids a scan for fresh captures not yet in a snapshot.
+    if candidate is None:
+        for layer in wanted_layers:
+            for root in config.mount(layer).roots:
+                prefix = uri_for(layer, "marker.md").removesuffix("marker.md")
+                relative = ident[len(prefix):] if ident.startswith(prefix) else ident
+                proposed = Path(root) / relative
+                try:
+                    proposed.resolve().relative_to(Path(root).resolve())
+                    proposed.with_suffix(".meta.json").resolve().relative_to(Path(root).resolve())
+                    if proposed.is_file():
+                        candidate = load_document(proposed, layer=layer, root=Path(root), max_bytes=MAX_REFERENCE_BYTES,
+                                                  max_metadata_bytes=MAX_METADATA_BYTES)
+                        break
+                except (OSError, ValueError, UnicodeError):
+                    continue
+    documents = [candidate] if candidate else load_layer_documents(config, wanted_layers, max_documents=128, max_bytes=1048576, time_budget_ms=100)
     match: Document | None = None
     for document in documents:
         if ident in {
@@ -250,7 +391,6 @@ def explain(
             match = document
             break
     if match is None and "shared" in consulted["layers_available"] and layer_from_uri(ident) == "shared":
-        active = current_shared(instance_for_config(config).state_root)
         prefix = str(active["root_uri"]).rstrip("/") + "/" if active else ""
         if prefix and ident.startswith(prefix) and ".." not in ident.split("/"):
             backend = backend_for_config(config)
