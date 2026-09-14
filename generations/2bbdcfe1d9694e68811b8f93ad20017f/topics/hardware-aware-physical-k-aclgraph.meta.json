@@ -1,0 +1,14 @@
+{
+  "conditions": {},
+  "retrieval": {
+    "aliases": [
+      "vllm-ascend PR 14409 hardware-aware dynamic speculative decoding",
+      "AdaptiveDraftKController resolve_physical_k min_batch 8 acceptance 0.6",
+      "hardware_aware.py physical_k_capture_scope PIECEWISE gate",
+      "DFlash DSpark PhysicalK mixin propose physical_k_scope",
+      "14409 DCO fail ci-gate fail head 2aacea2f pin-latest"
+    ],
+    "source_sha256": "c18562777a0313ee41c72e6fcb8b603b5d367579c44de24e5745057e22aa72ec",
+    "topics": []
+  }
+}
