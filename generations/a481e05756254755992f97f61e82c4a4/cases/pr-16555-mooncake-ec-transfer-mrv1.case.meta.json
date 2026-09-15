@@ -1,0 +1,14 @@
+{
+  "conditions": {},
+  "retrieval": {
+    "aliases": [
+      "ECMooncakeConnector Ascend EC transfer ModelRunner V1",
+      "Mooncake EPD encoder-cache NPU staging 2MiB Event readiness",
+      "PR 16555 e3963780 ec_transfer mooncake adapter",
+      "execute_model encoder-only no-forward EC completion V1",
+      "Qwen3.5 Mooncake EPD vs Example EPD 910B CLAIM bench"
+    ],
+    "source_sha256": "fa8bb64bce714517e370c9e9e03878894e1b375f5c9a3677746c1d967e18efbf",
+    "topics": []
+  }
+}

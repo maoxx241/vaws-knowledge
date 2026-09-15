@@ -1,0 +1,14 @@
+{
+  "conditions": {},
+  "retrieval": {
+    "aliases": [
+      "Ascend ECMooncakeConnector ec_transfer mooncake.py",
+      "EPD Mooncake encoder cache NPU Event staging",
+      "PR 16555 ModelRunner V1 EC completion no-forward",
+      "issue 6026 Mooncake cross-node encoder-cache",
+      "fused_moe routed_experts NPU load counter EC PR"
+    ],
+    "source_sha256": "47d01a32beb04eceb6d6e075b22cb7615fd2e508b56fa579a0f10a71be3a5762",
+    "topics": []
+  }
+}

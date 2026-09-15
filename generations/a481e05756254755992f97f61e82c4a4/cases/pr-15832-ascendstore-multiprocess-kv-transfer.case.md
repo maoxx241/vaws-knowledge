@@ -1,9 +1,17 @@
 # Case: AscendStore KV 传输放入 worker 子进程（draft）
 
-- **日期**: 2026-09-14
-- **状态**: OPEN **draft** / mergeable_state blocked / reference-only
-- **来源 PR**: https://github.com/vllm-project/vllm-ascend/pull/15832 （OPEN draft；author `ChenZhuo888`）
-- **Pinned（本轮委托证据）**: base `660c4582aa580ce98edc9b681bb6ff6d03153575` · head `cea32e97544a2f3f73d5c5310569077912963bd0`
+- **日期**: 2026-09-15（修订）；初建 2026-09-14
+- **状态**: OPEN **draft** / mergeable MERGEABLE / mergeStateStatus **BLOCKED** / reference-only
+- **来源 PR**: https://github.com/vllm-project/vllm-ascend/pull/15832 （OPEN draft；author `ChenZhuo888`；labels: `ci/build`, `module:tests`, `module:tools`, `ready-precise`）
+- **Pinned（本轮 gh 2026-09-15）**: base `cdad5a32e0a0cc0232ae29ded29636162f4fb690` · head `22c8c589ec55976d5f77154f7655ffe53db10431`
+
+## 修订说明 / Revision notes（2026-09-15，Asia/Shanghai）
+
+- **重 pin**：base `660c4582…` → `cdad5a32…`；head `cea32e97…` → `22c8c589…`（rebase onto newer main；设计叙述仍以 PR body 为准）。
+- 保留旧永久对比：https://github.com/vllm-project/vllm-ascend/compare/660c4582aa580ce98edc9b681bb6ff6d03153575...cea32e97544a2f3f73d5c5310569077912963bd0
+- 新对比：https://github.com/vllm-project/vllm-ascend/compare/cdad5a32e0a0cc0232ae29ded29636162f4fb690...22c8c589ec55976d5f77154f7655ffe53db10431
+- 规模本轮：+5707 / −15，**33 files**；`ready-precise`；ci-gate **fail**；选测：310P 多卡 **pass**，部分 A3 **fail**（根因 **UNVERIFIED**）。
+- 仍 **draft**；`use_multiprocess` default false；Event 所有权实验标 **CLAIM**。
 
 ## 修订说明 / Revision notes（2026-09-14，Asia/Shanghai）
 
@@ -22,7 +30,7 @@
 
 ## Preconditions / environment signals
 
-- 仓库：`vllm-project/vllm-ascend`；base `main` @ `660c4582aa580ce98edc9b681bb6ff6d03153575`；head `feat/ascend-store-transfer-mp` @ `cea32e97544a2f3f73d5c5310569077912963bd0`。
+- 仓库：`vllm-project/vllm-ascend`；base `main` @ `cdad5a32e0a0cc0232ae29ded29636162f4fb690`；head `feat/ascend-store-transfer-mp` @ `22c8c589ec55976d5f77154f7655ffe53db10431`。
 - RFC 语境：#14143 transfer-process（**CLAIM** 动机）。
 - 开关：`use_multiprocess` **default false**（可选）。
 - Draft / blocked → 行为可能继续变。
@@ -41,25 +49,26 @@
 5. Mooncake mp：`register_memory(address, length, "npu:<device_index>")`；CI pin `mooncake-transfer-engine-npu` `0.3.11.post1` → `0.3.12.post1`（Mooncake #2191）。
 6. 覆盖面 CLAIM：block / key-layerwise / GVA-layerwise、hybrid/Mamba、compressed、TP mismatch、Mooncake SSD（SSD e2e 环境缺 → 仅 UT）。
 
-**条件**: head `cea32e97544a2f3f73d5c5310569077912963bd0`；**OPEN draft** + blocked；默认关闭 multiprocess。
+**条件**: head `22c8c589ec55976d5f77154f7655ffe53db10431`；**OPEN draft** + blocked；默认关闭 multiprocess。
 
 ## Do-not-overgeneralize
 
 - Draft ≠ 可生产默认开启。
 - Hang 复现未宣称覆盖全部 CANN/torch-npu（**UNVERIFIED**）。
 - 「可能减少 transfer/compute overlap」无测吞吐（CLAIM）。
-- A2 one-card Mooncake ≠ A3 two-card Memcache ≠ 其它卡型。
+- A2 one-card Mooncake ≠ A3 two-card Memcache ≠ 其它卡型；本轮 A3 选测 fail ≠ 全栈否定。
 
 ## Evidence links
 
 - PR: https://github.com/vllm-project/vllm-ascend/pull/15832
-- Compare: https://github.com/vllm-project/vllm-ascend/compare/660c4582aa580ce98edc9b681bb6ff6d03153575...cea32e97544a2f3f73d5c5310569077912963bd0
+- Compare（本轮）: https://github.com/vllm-project/vllm-ascend/compare/cdad5a32e0a0cc0232ae29ded29636162f4fb690...22c8c589ec55976d5f77154f7655ffe53db10431
+- Compare（2026-09-14 永久保留）: https://github.com/vllm-project/vllm-ascend/compare/660c4582aa580ce98edc9b681bb6ff6d03153575...cea32e97544a2f3f73d5c5310569077912963bd0
 - RFC ref: https://github.com/vllm-project/vllm-ascend/pull/14143
 
 ## Retrieval queries
 
-1. `AscendStore use_multiprocess KV transfer worker subprocess`
-2. `npu_ipc export import storage specs ZMQ DEALER ascend_store mp`
-3. `NPU Event hang HCCL cross-process synchronize Worker ownership`
-4. `mooncake-transfer-engine-npu 0.3.12.post1 register_memory npu:device`
-5. `PR 15832 draft feat/ascend-store-transfer-mp cea32e97`
+1. AscendStore use_multiprocess KV transfer worker subprocess
+2. npu_ipc export import storage specs ZMQ DEALER ascend_store mp
+3. NPU Event hang HCCL cross-process synchronize Worker ownership
+4. mooncake-transfer-engine-npu 0.3.12.post1 register_memory npu:device
+5. PR 15832 draft feat/ascend-store-transfer-mp head 22c8c589

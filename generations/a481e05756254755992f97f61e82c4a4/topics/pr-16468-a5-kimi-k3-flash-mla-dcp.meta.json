@@ -1,0 +1,14 @@
+{
+  "conditions": {},
+  "retrieval": {
+    "aliases": [
+      "Kimi K3 A5 Flash MLA GQA DSpark ACLGraph draft 16468",
+      "DCP replicated draft KV MRv1 MRv2 DP4 TP8",
+      "a5_mla_common vf_basic_block flash_mla_with_kvcache",
+      "PR 16468 vs 16157 rc0.26 padding separate cases",
+      "head 8a293f0 rfc16464 blocked draft"
+    ],
+    "source_sha256": "95210abea2a6d47e94b1f7cc55b7feb3f70e42451d3e9f750c96b75aaf85173f",
+    "topics": []
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "conditions": {},
+  "retrieval": {
+    "aliases": [
+      "AdaptiveDraftKController physical_k ACLGraph capture_k",
+      "hardware_aware.py dspark dflash physical_k_scope",
+      "PR 14409 DIRTY head 6b458cff pin-latest-each-run",
+      "auto_tune batch bucket physical_k cost model",
+      "DynamicSpecConfig confidence_budget hardware_aware"
+    ],
+    "source_sha256": "539b2de68bd30c22c5927c86b1bc48907b6a087b340e251b671e978262e6f4ec",
+    "topics": []
+  }
+}

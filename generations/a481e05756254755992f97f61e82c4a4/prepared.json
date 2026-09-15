@@ -1,0 +1,212 @@
+{
+  "changes": {
+    "added": [
+      "cases/pr-16468-a5-kimi-k3-dcp-dspark-aclgraph.case.md",
+      "cases/pr-16542-dspark-swa-indices-triton-fuse.case.md",
+      "cases/pr-16555-mooncake-ec-transfer-mrv1.case.md",
+      "maintenance/2026-09-15-daily-pr-incremental.md",
+      "topics/pr-16468-a5-kimi-k3-flash-mla-dcp.md",
+      "topics/pr-16542-dspark-swa-indices-triton.md",
+      "topics/pr-16555-mooncake-ec-transfer-mrv1.md"
+    ],
+    "removed": [],
+    "renamed": [],
+    "updated": [
+      "cases/pr-14409-hardware-aware-dynamic-spec-k.case.md",
+      "cases/pr-15832-ascendstore-multiprocess-kv-transfer.case.md",
+      "topics/ascendstore-mp-kv-ipc-event-ownership.md",
+      "topics/hardware-aware-physical-k-aclgraph.md"
+    ]
+  },
+  "files": [
+    {
+      "input_sha256": "77e38969bfaaf427d491d26e0190f9ee5870572193597b25a580c8fe84f30f4a",
+      "metadata_sha256": "84bcbf2fcd29f7a9468d434e5db2e5cb874e8fac626d7bd26160e1105ceeb515",
+      "metadata_size": 575,
+      "path": "cases/pr-14409-hardware-aware-dynamic-spec-k.case.md",
+      "sha256": "77e38969bfaaf427d491d26e0190f9ee5870572193597b25a580c8fe84f30f4a",
+      "size": 5255,
+      "source_sha256": "77e38969bfaaf427d491d26e0190f9ee5870572193597b25a580c8fe84f30f4a"
+    },
+    {
+      "input_sha256": "a6c6bc6352949866651b9f27f3f67c247721a7e61cbd2575bdf0eaee64356535",
+      "metadata_sha256": "c42f5407fd50a054f38239cb91a3587b57c496c37949377d7db961205f4dd083",
+      "metadata_size": 548,
+      "path": "cases/pr-15645-310p-mtp-aclgraph-d2h-107027.case.md",
+      "sha256": "7a76b8dc9b7c97538ac37dba7cef99c1c402dde0317d4899e674c1695c8b4f7c",
+      "size": 4784,
+      "source_sha256": "7a76b8dc9b7c97538ac37dba7cef99c1c402dde0317d4899e674c1695c8b4f7c"
+    },
+    {
+      "input_sha256": "87a90cd7289161ed9a43cd381e91257905f1077b008d857ac5c137301c266826",
+      "metadata_sha256": "e4578d42c9952af7ea0862ee21ad00a704229ee008cb95099041f0a1da6e78ff",
+      "metadata_size": 485,
+      "path": "cases/pr-15816-310p-mrv2-mtp-qwen35.case.md",
+      "sha256": "87a90cd7289161ed9a43cd381e91257905f1077b008d857ac5c137301c266826",
+      "size": 3749,
+      "source_sha256": "87a90cd7289161ed9a43cd381e91257905f1077b008d857ac5c137301c266826"
+    },
+    {
+      "input_sha256": "96ac04d4dbe8a1e5f0cf274e817998536a8d22633d895b7a12851a34b85e2ab2",
+      "metadata_sha256": "42a60429a5f56342f418dc01b314681416a7f036bf10e9fe4da48ea1e074bdc9",
+      "metadata_size": 532,
+      "path": "cases/pr-15832-ascendstore-multiprocess-kv-transfer.case.md",
+      "sha256": "96ac04d4dbe8a1e5f0cf274e817998536a8d22633d895b7a12851a34b85e2ab2",
+      "size": 5049,
+      "source_sha256": "96ac04d4dbe8a1e5f0cf274e817998536a8d22633d895b7a12851a34b85e2ab2"
+    },
+    {
+      "input_sha256": "ae2db48bd6e0b079daab3710e5991b4065493f7f2977726c192b83f0ff9df430",
+      "metadata_sha256": "8d66b3666a5885a93b21e82c503ad87c5199f3cfb7bf49d54d07ec440d1f1572",
+      "metadata_size": 522,
+      "path": "cases/pr-16157-acl-graph-padding-precision.case.md",
+      "sha256": "ae2db48bd6e0b079daab3710e5991b4065493f7f2977726c192b83f0ff9df430",
+      "size": 4354,
+      "source_sha256": "ae2db48bd6e0b079daab3710e5991b4065493f7f2977726c192b83f0ff9df430"
+    },
+    {
+      "input_sha256": "d419546d904bc1ee1797fd74dcf7c53ff9bded38afcbf2c30c0485278e095850",
+      "metadata_sha256": "f9b0619ff74d193d7bf2e48d2dfcc7ec06ee9d88bd9c3eba95f3c4b5ab7b6018",
+      "metadata_size": 514,
+      "path": "cases/pr-16468-a5-kimi-k3-dcp-dspark-aclgraph.case.md",
+      "sha256": "d419546d904bc1ee1797fd74dcf7c53ff9bded38afcbf2c30c0485278e095850",
+      "size": 3582,
+      "source_sha256": "d419546d904bc1ee1797fd74dcf7c53ff9bded38afcbf2c30c0485278e095850"
+    },
+    {
+      "input_sha256": "688168f0d1dc6b47aad76777a3a5bd1ff3f5daea81a60cc6bded3a42780ab86a",
+      "metadata_sha256": "ecdc5b779c10417980d1e38179a705211e64a40a860c89d98f0c8cd4556a36f2",
+      "metadata_size": 499,
+      "path": "cases/pr-16542-dspark-swa-indices-triton-fuse.case.md",
+      "sha256": "688168f0d1dc6b47aad76777a3a5bd1ff3f5daea81a60cc6bded3a42780ab86a",
+      "size": 3613,
+      "source_sha256": "688168f0d1dc6b47aad76777a3a5bd1ff3f5daea81a60cc6bded3a42780ab86a"
+    },
+    {
+      "input_sha256": "fa8bb64bce714517e370c9e9e03878894e1b375f5c9a3677746c1d967e18efbf",
+      "metadata_sha256": "ce845f4f0163cecaa560fe2ebbec873987eef72077bb7454244ae68be54b6277",
+      "metadata_size": 488,
+      "path": "cases/pr-16555-mooncake-ec-transfer-mrv1.case.md",
+      "sha256": "fa8bb64bce714517e370c9e9e03878894e1b375f5c9a3677746c1d967e18efbf",
+      "size": 3492,
+      "source_sha256": "fa8bb64bce714517e370c9e9e03878894e1b375f5c9a3677746c1d967e18efbf"
+    },
+    {
+      "input_sha256": "c5c6e486cfba82036879962eddac8b75d13f02f272968439ba8b65a61089b5a7",
+      "metadata_sha256": "95f248b4c016025a590c38b5c43e24949bc3c1a2aee95d508ee6bb367cbe141e",
+      "metadata_size": 466,
+      "path": "maintenance/2026-09-13-run-summary.md",
+      "sha256": "c5c6e486cfba82036879962eddac8b75d13f02f272968439ba8b65a61089b5a7",
+      "size": 3357,
+      "source_sha256": "c5c6e486cfba82036879962eddac8b75d13f02f272968439ba8b65a61089b5a7"
+    },
+    {
+      "input_sha256": "bfa41f9f0b5fa28327176cb70885916f3879ba14ef41e0669e82c185aac2630b",
+      "metadata_sha256": "fda5ba67b00842443a590a2bd53e29336023d19d2f8c042924fb2126459a3174",
+      "metadata_size": 494,
+      "path": "maintenance/2026-09-14-daily-pr-incremental.md",
+      "sha256": "bfa41f9f0b5fa28327176cb70885916f3879ba14ef41e0669e82c185aac2630b",
+      "size": 3536,
+      "source_sha256": "bfa41f9f0b5fa28327176cb70885916f3879ba14ef41e0669e82c185aac2630b"
+    },
+    {
+      "input_sha256": "4f230156d1cf9e57a1894d4d923f13d2692a350426aa576f5fde96d2553a6bcd",
+      "metadata_sha256": "0b132e3566934c41ef57ae0673210b62ed1d4c01f22ff17df206889c6ed59346",
+      "metadata_size": 523,
+      "path": "maintenance/2026-09-15-daily-pr-incremental.md",
+      "sha256": "4f230156d1cf9e57a1894d4d923f13d2692a350426aa576f5fde96d2553a6bcd",
+      "size": 2799,
+      "source_sha256": "4f230156d1cf9e57a1894d4d923f13d2692a350426aa576f5fde96d2553a6bcd"
+    },
+    {
+      "input_sha256": "cf649205cf735fb153c013e785e800e9ab191a45f00e604464b9264105bd25a0",
+      "metadata_sha256": "23be51dea71fab40528fdb4c4eba746c3d29909ec3ed5bb02c977b798f2e5995",
+      "metadata_size": 480,
+      "path": "topics/ascendstore-mp-kv-ipc-event-ownership.md",
+      "sha256": "78839dc4753dcef7bef0e92d5a81571beff79a8192076413ab5db14c599aee9a",
+      "size": 4060,
+      "source_sha256": "78839dc4753dcef7bef0e92d5a81571beff79a8192076413ab5db14c599aee9a"
+    },
+    {
+      "input_sha256": "539b2de68bd30c22c5927c86b1bc48907b6a087b340e251b671e978262e6f4ec",
+      "metadata_sha256": "a78007f7e4643f6a2270c6ee0b0117312633c7d78b1e14e2a491c177ae27f1bd",
+      "metadata_size": 468,
+      "path": "topics/hardware-aware-physical-k-aclgraph.md",
+      "sha256": "539b2de68bd30c22c5927c86b1bc48907b6a087b340e251b671e978262e6f4ec",
+      "size": 3239,
+      "source_sha256": "539b2de68bd30c22c5927c86b1bc48907b6a087b340e251b671e978262e6f4ec"
+    },
+    {
+      "input_sha256": "c9bcbdea6b0c0a879cd233d69887ad363a41aedc8e2ee0d2f7710307639f4296",
+      "metadata_sha256": "464581562f223671ad2fab21083232fb852888041da658ccb0074bd20683e2d5",
+      "metadata_size": 506,
+      "path": "topics/pr-15645-310p-mtp-aclgraph-capture-d2h.md",
+      "sha256": "77ab6f09e0b2663cfa16e6dbeec11779d2148f855be7303a432c34949ee5ba76",
+      "size": 5682,
+      "source_sha256": "77ab6f09e0b2663cfa16e6dbeec11779d2148f855be7303a432c34949ee5ba76"
+    },
+    {
+      "input_sha256": "9b62513683210530e7895b4cd1ca6e072acf88a30f6023ac8b11b86e9b3c6d83",
+      "metadata_sha256": "c4c4caa618c7c4fc1b6c2db94f10fe6c31f109a81b234fe4b68e2777acb4e945",
+      "metadata_size": 461,
+      "path": "topics/pr-15816-310p-mrv2-mtp-adaptation.md",
+      "sha256": "e4900881cf125868cebdc63f18d1beb11db6ec305725ca77d3a923190fef3bef",
+      "size": 3929,
+      "source_sha256": "e4900881cf125868cebdc63f18d1beb11db6ec305725ca77d3a923190fef3bef"
+    },
+    {
+      "input_sha256": "27a5156d07dc46a228787725bb6034f301440b431ffb39b5d454767f27f57166",
+      "metadata_sha256": "ba78b28d6cab2ad82df49d6402ede8c9a1182141d0faef8a031e747bc0d21f6c",
+      "metadata_size": 558,
+      "path": "topics/pr-16157-acl-graph-padding-precision.md",
+      "sha256": "27a5156d07dc46a228787725bb6034f301440b431ffb39b5d454767f27f57166",
+      "size": 9812,
+      "source_sha256": "27a5156d07dc46a228787725bb6034f301440b431ffb39b5d454767f27f57166"
+    },
+    {
+      "input_sha256": "95210abea2a6d47e94b1f7cc55b7feb3f70e42451d3e9f750c96b75aaf85173f",
+      "metadata_sha256": "4a1b86f0e954f48fdff4a87a282f39ad157dfe78a810aad04af82c2fbc547682",
+      "metadata_size": 450,
+      "path": "topics/pr-16468-a5-kimi-k3-flash-mla-dcp.md",
+      "sha256": "95210abea2a6d47e94b1f7cc55b7feb3f70e42451d3e9f750c96b75aaf85173f",
+      "size": 1890,
+      "source_sha256": "95210abea2a6d47e94b1f7cc55b7feb3f70e42451d3e9f750c96b75aaf85173f"
+    },
+    {
+      "input_sha256": "1e1caabf405e34d49eeab46d0d824a38740f9ec6f6dda4f512fce7e92e97271c",
+      "metadata_sha256": "806ba7696e129d481a8c7cfc77f1662ab155890744acef0b19cb5421b15fd0cb",
+      "metadata_size": 488,
+      "path": "topics/pr-16542-dspark-swa-indices-triton.md",
+      "sha256": "1e1caabf405e34d49eeab46d0d824a38740f9ec6f6dda4f512fce7e92e97271c",
+      "size": 1744,
+      "source_sha256": "1e1caabf405e34d49eeab46d0d824a38740f9ec6f6dda4f512fce7e92e97271c"
+    },
+    {
+      "input_sha256": "47d01a32beb04eceb6d6e075b22cb7615fd2e508b56fa579a0f10a71be3a5762",
+      "metadata_sha256": "865a620c6640dda244cbf334447585389b076d54ed11aa288391aee613a703c7",
+      "metadata_size": 457,
+      "path": "topics/pr-16555-mooncake-ec-transfer-mrv1.md",
+      "sha256": "47d01a32beb04eceb6d6e075b22cb7615fd2e508b56fa579a0f10a71be3a5762",
+      "size": 1481,
+      "source_sha256": "47d01a32beb04eceb6d6e075b22cb7615fd2e508b56fa579a0f10a71be3a5762"
+    },
+    {
+      "input_sha256": "532d2ba4d37375881aa734659f3c395dc5e3bc9271374d6a3d6ae0f4450202c4",
+      "metadata_sha256": "00cd73e7c7c4e366074668d3a9b7b9081476fe133d53fedd98159c88a8767b7a",
+      "metadata_size": 514,
+      "path": "topics/vaws-corpus-nav-va-npu-infra.md",
+      "sha256": "532d2ba4d37375881aa734659f3c395dc5e3bc9271374d6a3d6ae0f4450202c4",
+      "size": 5840,
+      "source_sha256": "532d2ba4d37375881aa734659f3c395dc5e3bc9271374d6a3d6ae0f4450202c4"
+    }
+  ],
+  "includes": [
+    "cases",
+    "maintenance",
+    "topics"
+  ],
+  "previous_snapshot": "6eab1a1e970b198a5c5042cda4c77d083bace69acb5681c7704eb2e85b7d0aa3",
+  "redaction_profile": "r2",
+  "schema": "vaws-curation-export/1",
+  "snapshot": "d501a693b2fd135e90f863a9574d22decc268413e3900f868a65053b9b894e7e"
+}
