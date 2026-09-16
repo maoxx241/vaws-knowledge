@@ -1,0 +1,264 @@
+{
+  "changes": {
+    "added": [],
+    "removed": [],
+    "renamed": [],
+    "updated": [
+      "cases/pr-14409-hardware-aware-dynamic-spec-k.case.md"
+    ]
+  },
+  "files": [
+    {
+      "input_sha256": "2ee718c99a4a1c774a8306c2aebe98fcc95d0173ccb8c6944fa2598c4ae2db16",
+      "metadata_sha256": "ffbbf3fa6826e0e6651fa3ade3387e098895ae4a9fabe50a58de462dd8569ce5",
+      "metadata_size": 583,
+      "path": "cases/pr-14409-hardware-aware-dynamic-spec-k.case.md",
+      "sha256": "2ee718c99a4a1c774a8306c2aebe98fcc95d0173ccb8c6944fa2598c4ae2db16",
+      "size": 6367,
+      "source_sha256": "2ee718c99a4a1c774a8306c2aebe98fcc95d0173ccb8c6944fa2598c4ae2db16"
+    },
+    {
+      "input_sha256": "a6c6bc6352949866651b9f27f3f67c247721a7e61cbd2575bdf0eaee64356535",
+      "metadata_sha256": "c42f5407fd50a054f38239cb91a3587b57c496c37949377d7db961205f4dd083",
+      "metadata_size": 548,
+      "path": "cases/pr-15645-310p-mtp-aclgraph-d2h-107027.case.md",
+      "sha256": "7a76b8dc9b7c97538ac37dba7cef99c1c402dde0317d4899e674c1695c8b4f7c",
+      "size": 4784,
+      "source_sha256": "7a76b8dc9b7c97538ac37dba7cef99c1c402dde0317d4899e674c1695c8b4f7c"
+    },
+    {
+      "input_sha256": "87a90cd7289161ed9a43cd381e91257905f1077b008d857ac5c137301c266826",
+      "metadata_sha256": "e4578d42c9952af7ea0862ee21ad00a704229ee008cb95099041f0a1da6e78ff",
+      "metadata_size": 485,
+      "path": "cases/pr-15816-310p-mrv2-mtp-qwen35.case.md",
+      "sha256": "87a90cd7289161ed9a43cd381e91257905f1077b008d857ac5c137301c266826",
+      "size": 3749,
+      "source_sha256": "87a90cd7289161ed9a43cd381e91257905f1077b008d857ac5c137301c266826"
+    },
+    {
+      "input_sha256": "91a534baa29f8b6f4ff73e3279218307a546b9548d105cb58db029479bfedd47",
+      "metadata_sha256": "613e7ec5846abbcb3177c1c22095bcc01646f532b0439b4dbb0ebd4e8eceb28b",
+      "metadata_size": 532,
+      "path": "cases/pr-15832-ascendstore-multiprocess-kv-transfer.case.md",
+      "sha256": "91a534baa29f8b6f4ff73e3279218307a546b9548d105cb58db029479bfedd47",
+      "size": 6269,
+      "source_sha256": "91a534baa29f8b6f4ff73e3279218307a546b9548d105cb58db029479bfedd47"
+    },
+    {
+      "input_sha256": "ae2db48bd6e0b079daab3710e5991b4065493f7f2977726c192b83f0ff9df430",
+      "metadata_sha256": "8d66b3666a5885a93b21e82c503ad87c5199f3cfb7bf49d54d07ec440d1f1572",
+      "metadata_size": 522,
+      "path": "cases/pr-16157-acl-graph-padding-precision.case.md",
+      "sha256": "ae2db48bd6e0b079daab3710e5991b4065493f7f2977726c192b83f0ff9df430",
+      "size": 4354,
+      "source_sha256": "ae2db48bd6e0b079daab3710e5991b4065493f7f2977726c192b83f0ff9df430"
+    },
+    {
+      "input_sha256": "f0155b18af4244bc5ae9f2465af9269b2fc2268368d31424bfb49e5fb15b0e64",
+      "metadata_sha256": "cc11f163dbdd862ca1730937683e4fe018c4c62f3692908376c24fab48d477ce",
+      "metadata_size": 514,
+      "path": "cases/pr-16468-a5-kimi-k3-dcp-dspark-aclgraph.case.md",
+      "sha256": "f0155b18af4244bc5ae9f2465af9269b2fc2268368d31424bfb49e5fb15b0e64",
+      "size": 4805,
+      "source_sha256": "f0155b18af4244bc5ae9f2465af9269b2fc2268368d31424bfb49e5fb15b0e64"
+    },
+    {
+      "input_sha256": "688168f0d1dc6b47aad76777a3a5bd1ff3f5daea81a60cc6bded3a42780ab86a",
+      "metadata_sha256": "ecdc5b779c10417980d1e38179a705211e64a40a860c89d98f0c8cd4556a36f2",
+      "metadata_size": 499,
+      "path": "cases/pr-16542-dspark-swa-indices-triton-fuse.case.md",
+      "sha256": "688168f0d1dc6b47aad76777a3a5bd1ff3f5daea81a60cc6bded3a42780ab86a",
+      "size": 3613,
+      "source_sha256": "688168f0d1dc6b47aad76777a3a5bd1ff3f5daea81a60cc6bded3a42780ab86a"
+    },
+    {
+      "input_sha256": "210f453ba6ef0dac70ca90d2d76cde0a30dece5b9b26366e0ca52e5a350cba29",
+      "metadata_sha256": "44827a2a3171a905865eb6588129f5dbae7f74bc739cba6da84f0be197a9fc1c",
+      "metadata_size": 488,
+      "path": "cases/pr-16555-mooncake-ec-transfer-mrv1.case.md",
+      "sha256": "210f453ba6ef0dac70ca90d2d76cde0a30dece5b9b26366e0ca52e5a350cba29",
+      "size": 4333,
+      "source_sha256": "210f453ba6ef0dac70ca90d2d76cde0a30dece5b9b26366e0ca52e5a350cba29"
+    },
+    {
+      "input_sha256": "3248d5391854df01afd8244552fed0512414ce844f5e1bae62e1d3a28c460511",
+      "metadata_sha256": "a981eb8d00556c0661ccb88634f7acbc680b9fc2ccc3f171ad3ccaaa39190ceb",
+      "metadata_size": 471,
+      "path": "cases/pr-16629-dsa-local-metadata-fixed-capacity-triton.case.md",
+      "sha256": "3248d5391854df01afd8244552fed0512414ce844f5e1bae62e1d3a28c460511",
+      "size": 3276,
+      "source_sha256": "3248d5391854df01afd8244552fed0512414ce844f5e1bae62e1d3a28c460511"
+    },
+    {
+      "input_sha256": "0d1dbdf7e3d5b236976c547605038da8f54c0d99f9a9a3ec332e241b8eac92cf",
+      "metadata_sha256": "0098e118579084a8eb429927aea82c054bd45a00a612bc42a40591dfc1efdbd3",
+      "metadata_size": 457,
+      "path": "cases/pr-16634-a5-megamoe-w4a8-fused.case.md",
+      "sha256": "0d1dbdf7e3d5b236976c547605038da8f54c0d99f9a9a3ec332e241b8eac92cf",
+      "size": 3411,
+      "source_sha256": "0d1dbdf7e3d5b236976c547605038da8f54c0d99f9a9a3ec332e241b8eac92cf"
+    },
+    {
+      "input_sha256": "78f4b490be8a9eb2ef9e5eb9c4f301f8cd9c451eb7c932402b5d97c02c8e02d0",
+      "metadata_sha256": "46bd440948e5b7181a8eb48ed14498d63e48239d8eb34f7f4f98a1d4b54f2884",
+      "metadata_size": 480,
+      "path": "cases/pr-16636-dspark-empty-valid-context.case.md",
+      "sha256": "78f4b490be8a9eb2ef9e5eb9c4f301f8cd9c451eb7c932402b5d97c02c8e02d0",
+      "size": 3021,
+      "source_sha256": "78f4b490be8a9eb2ef9e5eb9c4f301f8cd9c451eb7c932402b5d97c02c8e02d0"
+    },
+    {
+      "input_sha256": "c5c6e486cfba82036879962eddac8b75d13f02f272968439ba8b65a61089b5a7",
+      "metadata_sha256": "95f248b4c016025a590c38b5c43e24949bc3c1a2aee95d508ee6bb367cbe141e",
+      "metadata_size": 466,
+      "path": "maintenance/2026-09-13-run-summary.md",
+      "sha256": "c5c6e486cfba82036879962eddac8b75d13f02f272968439ba8b65a61089b5a7",
+      "size": 3357,
+      "source_sha256": "c5c6e486cfba82036879962eddac8b75d13f02f272968439ba8b65a61089b5a7"
+    },
+    {
+      "input_sha256": "bfa41f9f0b5fa28327176cb70885916f3879ba14ef41e0669e82c185aac2630b",
+      "metadata_sha256": "fda5ba67b00842443a590a2bd53e29336023d19d2f8c042924fb2126459a3174",
+      "metadata_size": 494,
+      "path": "maintenance/2026-09-14-daily-pr-incremental.md",
+      "sha256": "bfa41f9f0b5fa28327176cb70885916f3879ba14ef41e0669e82c185aac2630b",
+      "size": 3536,
+      "source_sha256": "bfa41f9f0b5fa28327176cb70885916f3879ba14ef41e0669e82c185aac2630b"
+    },
+    {
+      "input_sha256": "4f230156d1cf9e57a1894d4d923f13d2692a350426aa576f5fde96d2553a6bcd",
+      "metadata_sha256": "0b132e3566934c41ef57ae0673210b62ed1d4c01f22ff17df206889c6ed59346",
+      "metadata_size": 523,
+      "path": "maintenance/2026-09-15-daily-pr-incremental.md",
+      "sha256": "4f230156d1cf9e57a1894d4d923f13d2692a350426aa576f5fde96d2553a6bcd",
+      "size": 2799,
+      "source_sha256": "4f230156d1cf9e57a1894d4d923f13d2692a350426aa576f5fde96d2553a6bcd"
+    },
+    {
+      "input_sha256": "1a0d6a6d1caa12e48bfbceb2c3f4b2b5dc8f722e24300abc4c6e34bbc648882e",
+      "metadata_sha256": "253c7be42f568891f8d30235d74c658e5a068456f724c8ceaa4a3afbd4eccf62",
+      "metadata_size": 544,
+      "path": "maintenance/2026-09-16-daily-pr-incremental.md",
+      "sha256": "1a0d6a6d1caa12e48bfbceb2c3f4b2b5dc8f722e24300abc4c6e34bbc648882e",
+      "size": 3817,
+      "source_sha256": "1a0d6a6d1caa12e48bfbceb2c3f4b2b5dc8f722e24300abc4c6e34bbc648882e"
+    },
+    {
+      "input_sha256": "c96239c84b770843c0ffdb0cccb1351dc71fcf3808307d78570478a96e7c9d15",
+      "metadata_sha256": "564886028372395cd25740771a1e04f456759bb95a8d9a9ef24e148b9ccaf32c",
+      "metadata_size": 480,
+      "path": "topics/ascendstore-mp-kv-ipc-event-ownership.md",
+      "sha256": "8c7c43daaaa705a4b76d3ae190fcf07f6c00b878c44c86145c48a8a950777ada",
+      "size": 4751,
+      "source_sha256": "8c7c43daaaa705a4b76d3ae190fcf07f6c00b878c44c86145c48a8a950777ada"
+    },
+    {
+      "input_sha256": "dc5441e45faab3a2c9936cbd369cc7fa145e492e18b01ec8b94c01c814cf0ae1",
+      "metadata_sha256": "58a97c7a26b9c22bc23fd40f5893f81e6a8f4cc5d220af92d4fea5776f75f9ad",
+      "metadata_size": 468,
+      "path": "topics/hardware-aware-physical-k-aclgraph.md",
+      "sha256": "dc5441e45faab3a2c9936cbd369cc7fa145e492e18b01ec8b94c01c814cf0ae1",
+      "size": 3803,
+      "source_sha256": "dc5441e45faab3a2c9936cbd369cc7fa145e492e18b01ec8b94c01c814cf0ae1"
+    },
+    {
+      "input_sha256": "c9bcbdea6b0c0a879cd233d69887ad363a41aedc8e2ee0d2f7710307639f4296",
+      "metadata_sha256": "464581562f223671ad2fab21083232fb852888041da658ccb0074bd20683e2d5",
+      "metadata_size": 506,
+      "path": "topics/pr-15645-310p-mtp-aclgraph-capture-d2h.md",
+      "sha256": "77ab6f09e0b2663cfa16e6dbeec11779d2148f855be7303a432c34949ee5ba76",
+      "size": 5682,
+      "source_sha256": "77ab6f09e0b2663cfa16e6dbeec11779d2148f855be7303a432c34949ee5ba76"
+    },
+    {
+      "input_sha256": "9b62513683210530e7895b4cd1ca6e072acf88a30f6023ac8b11b86e9b3c6d83",
+      "metadata_sha256": "c4c4caa618c7c4fc1b6c2db94f10fe6c31f109a81b234fe4b68e2777acb4e945",
+      "metadata_size": 461,
+      "path": "topics/pr-15816-310p-mrv2-mtp-adaptation.md",
+      "sha256": "e4900881cf125868cebdc63f18d1beb11db6ec305725ca77d3a923190fef3bef",
+      "size": 3929,
+      "source_sha256": "e4900881cf125868cebdc63f18d1beb11db6ec305725ca77d3a923190fef3bef"
+    },
+    {
+      "input_sha256": "27a5156d07dc46a228787725bb6034f301440b431ffb39b5d454767f27f57166",
+      "metadata_sha256": "ba78b28d6cab2ad82df49d6402ede8c9a1182141d0faef8a031e747bc0d21f6c",
+      "metadata_size": 558,
+      "path": "topics/pr-16157-acl-graph-padding-precision.md",
+      "sha256": "27a5156d07dc46a228787725bb6034f301440b431ffb39b5d454767f27f57166",
+      "size": 9812,
+      "source_sha256": "27a5156d07dc46a228787725bb6034f301440b431ffb39b5d454767f27f57166"
+    },
+    {
+      "input_sha256": "fe8c925d163ca48a32fcbe81cb239814dbd9d88a0630deaf27484bc53a4c71d0",
+      "metadata_sha256": "4a4003db7893a2a8b8957c30c9d920c821e57d6897e9a22a7f6be7dc808b3b41",
+      "metadata_size": 454,
+      "path": "topics/pr-16468-a5-kimi-k3-flash-mla-dcp.md",
+      "sha256": "fe8c925d163ca48a32fcbe81cb239814dbd9d88a0630deaf27484bc53a4c71d0",
+      "size": 2600,
+      "source_sha256": "fe8c925d163ca48a32fcbe81cb239814dbd9d88a0630deaf27484bc53a4c71d0"
+    },
+    {
+      "input_sha256": "1e1caabf405e34d49eeab46d0d824a38740f9ec6f6dda4f512fce7e92e97271c",
+      "metadata_sha256": "806ba7696e129d481a8c7cfc77f1662ab155890744acef0b19cb5421b15fd0cb",
+      "metadata_size": 488,
+      "path": "topics/pr-16542-dspark-swa-indices-triton.md",
+      "sha256": "1e1caabf405e34d49eeab46d0d824a38740f9ec6f6dda4f512fce7e92e97271c",
+      "size": 1744,
+      "source_sha256": "1e1caabf405e34d49eeab46d0d824a38740f9ec6f6dda4f512fce7e92e97271c"
+    },
+    {
+      "input_sha256": "55a9334d181e7e61763714d9659eb4454b54f0d06218b0d147a0e5069c283ce1",
+      "metadata_sha256": "71cb167278d9bd92feed25fb36f2f5696df722121394213aec5f93758bbef837",
+      "metadata_size": 460,
+      "path": "topics/pr-16555-mooncake-ec-transfer-mrv1.md",
+      "sha256": "55a9334d181e7e61763714d9659eb4454b54f0d06218b0d147a0e5069c283ce1",
+      "size": 1900,
+      "source_sha256": "55a9334d181e7e61763714d9659eb4454b54f0d06218b0d147a0e5069c283ce1"
+    },
+    {
+      "input_sha256": "da58cdc43b4f5d41a3a6c5274bb79be9234fdf2fffcc830f3e2ec67aea78fe1d",
+      "metadata_sha256": "e7ad45d69179d80c2fc40ff9940de171b7b7c4f7337a81308fcd8da2ec7c9bfb",
+      "metadata_size": 428,
+      "path": "topics/pr-16629-dsa-local-metadata-fixed-capacity-triton.md",
+      "sha256": "da58cdc43b4f5d41a3a6c5274bb79be9234fdf2fffcc830f3e2ec67aea78fe1d",
+      "size": 1376,
+      "source_sha256": "da58cdc43b4f5d41a3a6c5274bb79be9234fdf2fffcc830f3e2ec67aea78fe1d"
+    },
+    {
+      "input_sha256": "6ad31b10dcb6c23ae0b283859acac0ce554f4996d6e92619bed04b24691922b9",
+      "metadata_sha256": "14982e4e1ba3546402da09deeb54c4ab1c6e015cdcbd4ec59763e31d20df97f1",
+      "metadata_size": 425,
+      "path": "topics/pr-16634-a5-megamoe-w4a8-fused.md",
+      "sha256": "6ad31b10dcb6c23ae0b283859acac0ce554f4996d6e92619bed04b24691922b9",
+      "size": 1424,
+      "source_sha256": "6ad31b10dcb6c23ae0b283859acac0ce554f4996d6e92619bed04b24691922b9"
+    },
+    {
+      "input_sha256": "200c121da6fd08aabeac1a1439b66034d6df3c9ab7d074949753b1fef497425b",
+      "metadata_sha256": "77008ca33ffcaf0a8b2f34eb74a55ada276aa479960f3987a65c822774114939",
+      "metadata_size": 441,
+      "path": "topics/pr-16636-dspark-empty-valid-context.md",
+      "sha256": "200c121da6fd08aabeac1a1439b66034d6df3c9ab7d074949753b1fef497425b",
+      "size": 1442,
+      "source_sha256": "200c121da6fd08aabeac1a1439b66034d6df3c9ab7d074949753b1fef497425b"
+    },
+    {
+      "input_sha256": "532d2ba4d37375881aa734659f3c395dc5e3bc9271374d6a3d6ae0f4450202c4",
+      "metadata_sha256": "00cd73e7c7c4e366074668d3a9b7b9081476fe133d53fedd98159c88a8767b7a",
+      "metadata_size": 514,
+      "path": "topics/vaws-corpus-nav-va-npu-infra.md",
+      "sha256": "532d2ba4d37375881aa734659f3c395dc5e3bc9271374d6a3d6ae0f4450202c4",
+      "size": 5840,
+      "source_sha256": "532d2ba4d37375881aa734659f3c395dc5e3bc9271374d6a3d6ae0f4450202c4"
+    }
+  ],
+  "includes": [
+    "cases",
+    "maintenance",
+    "topics"
+  ],
+  "previous_snapshot": "85c1dbda9763846b876fdf836e43fed2cc060ab24158274b85d020b951dd1c87",
+  "redaction_profile": "r2",
+  "schema": "vaws-curation-export/1",
+  "snapshot": "625eeb703ba76423ba2a56f44cd76804b3ca5528f70af82f4b464fac5fe4c22c"
+}
