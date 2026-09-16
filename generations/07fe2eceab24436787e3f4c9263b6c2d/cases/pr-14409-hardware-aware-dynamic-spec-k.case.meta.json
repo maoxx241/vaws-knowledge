@@ -1,0 +1,14 @@
+{
+  "conditions": {},
+  "retrieval": {
+    "aliases": [
+      "hardware_aware dynamic speculative decoding physical_k AdaptiveDraftKController",
+      "DynamicSpecConfig confidence_budget hardware_aware dspark dflash",
+      "physical_k_scope physical_k_capture_scope extend_capture_descriptors ACLGraph",
+      "PR 14409 head 6b458cff DIRTY auto_tune batch bucket",
+      "adaptive_verification_gate_wrapper PIECEWISE min_batch acceptance probe_interval"
+    ],
+    "source_sha256": "58f4d33dd7cd74ed425c4a3f50838ee2bbe3fe41f94212e674c2a2f3e3141428",
+    "topics": []
+  }
+}
