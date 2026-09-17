@@ -1,0 +1,14 @@
+{
+  "conditions": {},
+  "retrieval": {
+    "aliases": [
+      "Kimi K3 A5 Flash MLA GQA DSpark ACLGraph draft 16468",
+      "DCP8 small-decode MRv2 policy3 EPLB 4e519623",
+      "DeviceMetadataTask ACLGraph padded requests DCP slots",
+      "PR 16468 vs 16157 rc0.26 padding separate cases",
+      "head 4e519623 rfc16464 DIRTY draft"
+    ],
+    "source_sha256": "594227550b1ccacbc5278a5b423bcdc8dab68ed856416f0b02d1b620d746160d",
+    "topics": []
+  }
+}

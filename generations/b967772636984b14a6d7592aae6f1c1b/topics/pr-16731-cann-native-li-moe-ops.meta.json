@@ -1,0 +1,12 @@
+{
+  "conditions": {},
+  "retrieval": {
+    "aliases": [
+      "CANN native lightning indexer MoE gating top_k Ascend",
+      "remove custom lightning_indexer_quant moe_gating_top_k csrc",
+      "PR 16731 torch_npu operator migration"
+    ],
+    "source_sha256": "cb27e69ba16b125004d9eae55082a421eb3bd6af6cd821a195aba27a03c469cd",
+    "topics": []
+  }
+}
