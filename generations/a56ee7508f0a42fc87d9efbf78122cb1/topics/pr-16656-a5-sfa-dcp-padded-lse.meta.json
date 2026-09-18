@@ -1,0 +1,12 @@
+{
+  "conditions": {},
+  "retrieval": {
+    "aliases": [
+      "A5 SFA DCP padded LSE empty local keys",
+      "PR 16656 sparse flash attention DCP merge",
+      "SFA_DCP_REPLICATED_INDEXER Ascend A5"
+    ],
+    "source_sha256": "918534edf2162753acd6e4c49b3b0cb1e7e815f85e3f59461d3407cf97d39728",
+    "topics": []
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "conditions": {},
+  "retrieval": {
+    "aliases": [
+      "A5 SFA DCP padded index LSE empty shards Ascend",
+      "PR 16656 sparse flash attention softmax valid prefix",
+      "SFA_DCP_REPLICATED_INDEXER hardware_profile A5",
+      "GLM5.2 W4A8 TP8 DCP8 SFA C8 disabled eager",
+      "sparse_flash_attention_kernel_mla padded -1 indices"
+    ],
+    "source_sha256": "9f5b7fceae4cef1b27b77b38db7a88f600a9e2efc3ef5c66cd7daf0cbae330c4",
+    "topics": []
+  }
+}
